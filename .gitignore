@@ -1,16 +1,1 @@
-# Ignore all files in the 'node_modules' folder
-node_modules/
-
-# Ignore all .log files
-*.log
-
-# Ignore virtual environments
-.venv/
-.env/
-
-# Ignore IDE settings (e.g., VSCode, JetBrains, etc.)
-.idea/
-.vscode/
-
-# Ignore specific files
-frontend/.env
+.venv
