@@ -44,9 +44,13 @@ function ImageUploader({ multiple, maxFiles, minFiles, onFilesChange }) {
     >
       <input {...getInputProps()} />
       {isDragActive ? (
-        <p className="text-[#D83A3A] font-semibold text-lg">Drop files here...</p>
+        <p className="text-[#D83A3A] font-semibold text-lg">
+          Drop files here...
+        </p>
       ) : (
-        <p className="text-gray-300 text-lg">Drag and drop files or click to upload</p>
+        <p className="text-gray-300 text-lg">
+          Drag and drop files or click to upload
+        </p>
       )}
     </div>
   );
@@ -77,7 +81,9 @@ export default function Upload() {
     } else {
       setError("");
       setFiles(uploadedFiles);
-      setSuccessMessage(`${uploadedFiles.length} file(s) uploaded successfully!`);
+      setSuccessMessage(
+        `${uploadedFiles.length} file(s) uploaded successfully!`
+      );
     }
   };
 
@@ -130,7 +136,9 @@ export default function Upload() {
 
       {/* Header Text */}
       <div className="relative z-10 text-center mb-6">
-        <h1 className="text-5xl font-bold text-white mt-18">Analyze Your Scene Now!</h1>
+        <h1 className="text-5xl font-bold text-white mt-18">
+          Analyze Your Scene Now!
+        </h1>
         <p className="text-gray-300 text-lg mt-2">
           Upload, analyze, and extract crime scene type & evidence.
         </p>
@@ -164,7 +172,9 @@ export default function Upload() {
           <>
             {step === 1 ? (
               <>
-                <h2 className="text-4xl font-bold text-white">Enter Case Title</h2>
+                <h2 className="text-4xl font-bold text-white">
+                  Enter Case Title
+                </h2>
                 <input
                   type="text"
                   value={caseTitle}
@@ -191,7 +201,15 @@ export default function Upload() {
               <>
                 <h2 className="text-4xl font-bold text-white">{caseTitle}</h2>
                 <p className="text-gray-300 mt-3 text-lg">
-                  Upload <span className="text-[#D83A3A] font-semibold">one video</span> OR between <span className="text-[#D83A3A] font-semibold">4 and 15 images</span>.
+                  Upload{" "}
+                  <span className="text-[#D83A3A] font-semibold">
+                    one video
+                  </span>{" "}
+                  OR between{" "}
+                  <span className="text-[#D83A3A] font-semibold">
+                    4 and 15 images
+                  </span>
+                  .
                 </p>
                 <ImageUploader
                   multiple={true}
@@ -212,7 +230,11 @@ export default function Upload() {
                   </div>
                 )}
                 {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
-                {successMessage && <p className="text-green-400 mt-4 text-sm">{successMessage}</p>}
+                {successMessage && (
+                  <p className="text-green-400 mt-4 text-sm">
+                    {successMessage}
+                  </p>
+                )}
                 <button
                   onClick={handleAnalyze}
                   disabled={files.length < 4} // Disable button until required files are uploaded
@@ -231,13 +253,17 @@ export default function Upload() {
 
         {activeTab === "Process" && (
           <h2 className="text-4xl font-bold text-white">
-            {processing ? "Processing Files..." : "Upload files to begin processing"}
+            {processing
+              ? "Processing Files..."
+              : "Upload files to begin processing"}
           </h2>
         )}
 
         {activeTab === "Results" && (
           <h2 className="text-4xl font-bold text-white">
-            {files.length > 0 ? "Results will be displayed here." : "No results yet."}
+            {files.length > 0
+              ? "Results will be displayed here."
+              : "No results yet."}
           </h2>
         )}
       </motion.div>

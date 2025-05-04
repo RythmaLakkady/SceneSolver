@@ -1,7 +1,7 @@
 import express from "express";
 import passport from "passport";
 import jwt from "jsonwebtoken";
-import Guser from "../models/guser.js";
+import Guser from "../models/Guser.js";
 
 const router = express.Router();
 

@@ -112,39 +112,39 @@ router.post("/", upload.array("files"), async (req, res) => {
   }
 });
 
-router.get("/user", async (req, res) => {
-  try {
-    if (!gridfsBucket) {
-      return res.status(500).json({ error: "GridFS not initialized" });
-    }
+// router.get("/user", async (req, res) => {
+//   try {
+//     if (!gridfsBucket) {
+//       return res.status(500).json({ error: "GridFS not initialized" });
+//     }
 
-    const { email } = req.query;
+//     const { email } = req.query;
 
-    const user =
-      (await Guser.findOne({ email })) || (await User.findOne({ email }));
+//     const user =
+//       (await Guser.findOne({ email })) || (await User.findOne({ email }));
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
 
-    const uId = user._id;
+//     const uId = user._id;
 
-    const cursor = conn.db.collection("uploads.files").find({
-      "metadata.userId": uId,
-    });
+//     const cursor = conn.db.collection("uploads.files").find({
+//       "metadata.userId": uId,
+//     });
 
-    const files = await cursor.toArray();
+//     const files = await cursor.toArray();
 
-    if (!files || files.length === 0) {
-      return res.status(404).json({ error: "No files found" });
-    }
+//     if (!files || files.length === 0) {
+//       return res.status(404).json({ error: "No files found" });
+//     }
 
-    res.json(files);
-  } catch (error) {
-    console.error("Error fetching files:", error);
-    res.status(500).send("Server error");
-  }
-});
+//     res.json(files);
+//   } catch (error) {
+//     console.error("Error fetching files:", error);
+//     res.status(500).send("Server error");
+//   }
+// });
 
 router.get("/user/case", async (req, res) => {
   try {
