@@ -13,14 +13,12 @@ export default function Header() {
             user ? "justify-center gap-10" : "justify-between"
           }`}
         >
-          {/* Logo - Always visible */}
           <div className="text-2xl tracking-wide font-semibold">
             <Link to="/">
               Scene<span className="text-[#D83A3A]">Solver</span>
             </Link>
           </div>
 
-          {/* Nav Links */}
           <nav className="flex items-center space-x-6 text-lg">
             <Link
               to="/"

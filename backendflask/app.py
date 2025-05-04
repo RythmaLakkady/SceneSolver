@@ -58,12 +58,14 @@
 # if __name__ == "__main__":
 #     app.run(host="0.0.0.0", port=5000, debug=True)
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from pymongo import MongoClient
 from crime_pipeline import load_models, predict_multiple
 from datetime import datetime
 import os
 
 app = Flask(__name__)
+CORS(app) 
 
 # Load models once when server starts
 load_models(clip_checkpoint="clip_model_weights.pth", vit_checkpoint="vit_model.pth")
@@ -79,10 +81,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 @app.route("/upload", methods=["POST"])
 def upload_images():
     print("upload route")
-    if "images" not in request.files:
+    if "files" not in request.files:
         return jsonify({"error": "No images uploaded. Use 'images' as the key."}), 400
 
-    files = request.files.getlist("images")
+    files = request.files.getlist("files")
     if len(files) == 0:
         return jsonify({"error": "No files received"}), 400
 

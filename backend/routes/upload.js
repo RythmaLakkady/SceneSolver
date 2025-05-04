@@ -55,13 +55,18 @@ const streamToGridFS = (fileBuffer, options) => {
 };
 
 router.post("/", upload.array("files"), async (req, res) => {
+  console.log("upload post route reached");
+
   try {
     if (!gridfsBucket) {
       return res.status(500).json({ error: "GridFS not initialized" });
     }
 
     const files = req.files;
-    const { email, caseName } = req.body;
+    const { email, caseName, caseResult } = req.body;
+
+    console.log("Files received:", files.length);
+    console.log("Uploaded by user:", email);
 
     const user =
       (await User.findOne({ email })) || (await Guser.findOne({ email }));
@@ -95,6 +100,7 @@ router.post("/", upload.array("files"), async (req, res) => {
         metadata: {
           userId: uId,
           caseName: caseName,
+          caseResult: JSON.parse(caseResult),
           type: file.mimetype.startsWith("video") ? "video" : "image",
         },
       })
@@ -112,39 +118,37 @@ router.post("/", upload.array("files"), async (req, res) => {
   }
 });
 
-// router.get("/user", async (req, res) => {
-//   try {
-//     if (!gridfsBucket) {
-//       return res.status(500).json({ error: "GridFS not initialized" });
-//     }
+router.get("/user", async (req, res) => {
+  try {
+    if (!gridfsBucket) {
+      return res.status(500).json({ error: "GridFS not initialized" });
+    }
 
-//     const { email } = req.query;
+    const { email } = req.query;
 
-//     const user =
-//       (await Guser.findOne({ email })) || (await User.findOne({ email }));
+    const user =
+      (await User.findOne({ email })) || (await Guser.findOne({ email }));
 
-//     if (!user) {
-//       return res.status(404).json({ error: "User not found" });
-//     }
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-//     const uId = user._id;
+    const uId = user._id;
 
-//     const cursor = conn.db.collection("uploads.files").find({
-//       "metadata.userId": uId,
-//     });
+    const query = {
+      "metadata.userId": uId,
+    };
 
-//     const files = await cursor.toArray();
+    const cursor = conn.db.collection("uploads.files").find(query);
 
-//     if (!files || files.length === 0) {
-//       return res.status(404).json({ error: "No files found" });
-//     }
+    const files = await cursor.toArray();
 
-//     res.json(files);
-//   } catch (error) {
-//     console.error("Error fetching files:", error);
-//     res.status(500).send("Server error");
-//   }
-// });
+    res.json(files);
+  } catch (error) {
+    console.error("Error fetching files:", error);
+    res.status(500).send("Server error");
+  }
+});
 
 router.get("/user/case", async (req, res) => {
   try {
@@ -180,6 +184,24 @@ router.get("/user/case", async (req, res) => {
   } catch (error) {
     console.error("Error fetching files:", error);
     res.status(500).send("Server error");
+  }
+});
+
+router.get("/file/:id", async (req, res) => {
+  try {
+    const fileId = new mongoose.Types.ObjectId(req.params.id);
+    const file = await conn.db
+      .collection("uploads.files")
+      .findOne({ _id: fileId });
+
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    const downloadStream = gridfsBucket.openDownloadStream(fileId);
+    res.set("Content-Type", file.contentType);
+    downloadStream.pipe(res);
+  } catch (error) {
+    console.error("File fetch error:", error);
+    res.status(500).json({ error: "Failed to fetch file" });
   }
 });
 
