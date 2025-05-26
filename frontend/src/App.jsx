@@ -12,8 +12,9 @@ import Dashboard from "./Dashboard";
 import Login from "./Login";
 import Signup from "./Signup";
 import Upload from "./Upload";
-import User from "./user"; // Import the User component
+import User from "./User"; // Import the User component
 import About from "./about"; // Import the About component
+import CaseSummary from "./CaseSummary";
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -76,6 +77,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <User />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/case-summary"
+          element={
+            <ProtectedRoute>
+              <CaseSummary />
             </ProtectedRoute>
           }
         />

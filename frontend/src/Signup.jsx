@@ -1,8 +1,8 @@
-/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import OTPVerification from "./components/OTPVerification";
 
 const images = [
   "src/assets/crimeSceneImg.jpg",
@@ -26,8 +26,9 @@ export default function Signup() {
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
+  const [userId, setUserId] = useState(null);
 
-  // Auto-change background every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % images.length);
@@ -48,20 +49,56 @@ export default function Signup() {
     const result = await signup({
       email,
       password,
-      displayName: name,
+      name,
     });
     setLoading(false);
 
     if (!result.success) {
       setError(result.error || "Signup failed");
     } else {
-      navigate("/");
+      setUserId(result.userId);
+      setShowOTP(true);
     }
   };
 
+  const handleVerificationSuccess = () => {
+    navigate("/");
+  };
+
+  if (showOTP) {
+    return (
+      <section className="relative w-full min-h-screen flex flex-col items-center text-center px-6 overflow-hidden">
+        <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
+          {images.map((img, i) => (
+            <motion.img
+              key={i}
+              src={img}
+              className="absolute w-full h-full object-cover blur-lg"
+              style={{ opacity: i === index ? 1 : 0 }}
+              animate={{ opacity: i === index ? 1 : 0 }}
+              transition={{ duration: 2, ease: "easeInOut" }}
+            />
+          ))}
+        </div>
+
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
+
+        <header className="relative z-10 text-white text-3xl font-bold py-6">
+          SceneSolver
+        </header>
+
+        <div className="flex-grow flex justify-center items-center w-full">
+          <OTPVerification
+            userId={userId}
+            onVerificationSuccess={handleVerificationSuccess}
+          />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="relative w-full min-h-screen flex flex-col items-center text-center px-6 overflow-hidden">
-      {/* Background Image Slider */}
       <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
         {images.map((img, i) => (
           <motion.img
@@ -75,15 +112,12 @@ export default function Signup() {
         ))}
       </div>
 
-      {/* Dark Overlay */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
 
-      {/* Header */}
       <header className="relative z-10 text-white text-3xl font-bold py-6">
         SceneSolver
       </header>
 
-      {/* Centered Signup Box */}
       <div className="flex-grow flex justify-center items-center w-full">
         <motion.div
           className="relative z-10 bg-white/10 backdrop-blur-lg p-10 rounded-xl shadow-xl max-w-lg w-full mx-4"
@@ -94,10 +128,8 @@ export default function Signup() {
           <h2 className="text-4xl font-bold text-white">Create an Account</h2>
           <p className="text-gray-300 mt-3 text-lg">Sign up to get started</p>
 
-          {/* Error Message */}
           {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
 
-          {/* Signup Form */}
           <form onSubmit={handleSignup} className="mt-6 space-y-5">
             <input
               type="text"
@@ -136,7 +168,6 @@ export default function Signup() {
               required
             />
 
-            {/* Signup Button */}
             <motion.button
               type="submit"
               disabled={loading}
@@ -147,10 +178,11 @@ export default function Signup() {
               {loading ? "Signing Up..." : "Sign Up"}
             </motion.button>
 
-            {/* Continue with Google Button */}
             <motion.button
               type="button"
-              onClick={() => (window.location.href = "http://localhost:5000/api/auth/google")}
+              onClick={() =>
+                (window.location.href = "http://localhost:5000/api/auth/google")
+              }
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="w-full px-6 py-4 bg-white text-gray-700 font-semibold text-lg rounded-lg shadow-md transition-all duration-300 flex items-center justify-center"
@@ -164,7 +196,6 @@ export default function Signup() {
             </motion.button>
           </form>
 
-          {/* Login Link */}
           <p className="text-gray-300 mt-5 text-lg">
             Already have an account?{" "}
             <a

@@ -53,13 +53,20 @@ export const AuthProvider = ({ children }) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(credentials),
-          credentials: "include",
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.error === "Email not verified" && data.userId) {
+          return {
+            success: false,
+            error: "Email not verified",
+            userId: data.userId,
+            requiresVerification: true,
+          };
+        }
         throw new Error(data.error || "Login failed");
       }
 
@@ -74,28 +81,93 @@ export const AuthProvider = ({ children }) => {
 
   const signup = async (userData) => {
     try {
+      console.log("Sending registration data:", userData);
       const response = await fetch(
         "http://localhost:5000/api/auth/local/register",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(userData),
-          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+      console.log("Registration response:", data);
+
+      if (!response.ok) {
+        throw new Error(data.error || "Signup failed");
+      }
+
+      return {
+        success: true,
+        userId: data.userId,
+      };
+    } catch (error) {
+      console.error("Registration error:", error);
+      return {
+        success: false,
+        error: error.message || "Registration failed",
+      };
+    }
+  };
+
+  const verifyOTP = async (userId, otp) => {
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/auth/local/verify-otp",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId, otp }),
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Signup failed");
+        throw new Error(data.error || "OTP verification failed");
       }
 
       localStorage.setItem("token", data.token);
       setUser(data.user);
-      navigate("/");
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error.message || "OTP verification failed",
+      };
+    }
+  };
+
+  const resendOTP = async (userId) => {
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/auth/local/resend-otp",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to resend OTP");
+      }
+
+      return { success: true, message: "OTP sent successfully" };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || "Failed to resend OTP",
+      };
     }
   };
 
@@ -140,6 +212,8 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         signup,
+        verifyOTP,
+        resendOTP,
         loading,
         handleGoogleCallback,
       }}

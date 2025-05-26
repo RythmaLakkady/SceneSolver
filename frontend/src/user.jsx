@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./context/AuthContext";
+import html2pdf from "html2pdf.js";
 
 const images = [
   "src/assets/crimeSceneImg.jpg",
@@ -20,6 +21,9 @@ export default function User() {
   const [caseDetails, setCaseDetails] = useState([]);
   const [caseResult, setCaseResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [newFiles, setNewFiles] = useState([]);
+  const [uploadError, setUploadError] = useState("");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalImage, setModalImage] = useState(null);
@@ -40,7 +44,7 @@ export default function User() {
       const res = await axios.get(
         `http://localhost:5000/api/upload/user?email=${email}`
       );
-      console.log("Raw case data:", res.data);
+      // console.log("Raw case data:", res.data);
 
       const filtered = res.data.filter(
         (item) => item && item.metadata && item.metadata.caseName
@@ -85,41 +89,455 @@ export default function User() {
     }
   };
 
-  const renderCaseImages = () => {
+  const formatGeminiOutput = (text) => {
+    const sections = text.split(/(?=\n[A-Z][A-Z\s]+:)/);
+    return sections
+      .map((section, index) => {
+        const [header, ...content] = section.split("\n");
+        if (!header.trim()) return null;
+
+        const cleanHeader = header.replace(/[:*]+/g, "").trim();
+
+        return (
+          <div
+            key={index}
+            className="mb-8 last:mb-0 bg-black/20 rounded-lg p-6 border border-gray-700/30"
+          >
+            <h3 className="text-xl font-semibold text-[#D83A3A] mb-4 pb-2 border-b border-gray-700/30">
+              {cleanHeader}
+            </h3>
+            <div className="text-gray-300 space-y-3">
+              {content
+                .map((line, i) => {
+                  if (!line.trim()) return null;
+
+                  const keyValueMatch = line.trim().match(/^([^:]+):\s*(.+)$/);
+                  if (keyValueMatch) {
+                    return (
+                      <div
+                        key={i}
+                        className="flex flex-col sm:flex-row sm:items-center gap-2 bg-black/20 p-3 rounded-lg"
+                      >
+                        <span className="text-[#D83A3A] font-medium min-w-[120px]">
+                          {keyValueMatch[1].trim()}:
+                        </span>
+                        <span className="text-gray-300">
+                          {keyValueMatch[2].trim()}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  const bulletMatch = line.trim().match(/^[-*]\s*(.+)$/);
+                  if (bulletMatch) {
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-start gap-3 bg-black/20 p-3 rounded-lg"
+                      >
+                        <span className="text-[#D83A3A] mt-1">•</span>
+                        <span className="text-gray-300 flex-1">
+                          {bulletMatch[1].trim()}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <p
+                      key={i}
+                      className="leading-relaxed bg-black/20 p-3 rounded-lg"
+                    >
+                      {line.trim()}
+                    </p>
+                  );
+                })
+                .filter(Boolean)}
+            </div>
+          </div>
+        );
+      })
+      .filter(Boolean);
+  };
+
+  const handleDownloadPDF = (caseName, summary) => {
+    const tempContainer = document.createElement("div");
+    tempContainer.style.background = "white";
+    tempContainer.style.padding = "40px";
+    tempContainer.style.color = "black";
+    tempContainer.style.fontFamily = "Arial, sans-serif";
+
+    const caseResult = caseDetails[0]?.metadata?.caseResult || {};
+
+    const content = `
+      <div style="max-width: 800px; margin: 0 auto;">
+        <h1 style="color: #D83A3A; font-size: 28px; text-align: center; margin-bottom: 20px;">
+          Crime Scene Analysis Report
+        </h1>
+        <h2 style="font-size: 22px; text-align: center; margin-bottom: 30px; color: #333;">
+          ${caseName}
+        </h2>
+        
+        <div style="margin-bottom: 40px; padding: 20px; background: #f8f8f8; border-radius: 8px;">
+          <h3 style="color: #D83A3A; font-size: 20px; margin-bottom: 15px;">Crime Scene Classification</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div style="padding: 15px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <p style="color: #666; margin-bottom: 5px;">Type:</p>
+              <p style="color: #333; font-weight: 500;">${
+                caseResult.predicted_class || "Not available"
+              }</p>
+            </div>
+            <div style="padding: 15px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <p style="color: #666; margin-bottom: 5px;">Confidence:</p>
+              <p style="color: #333; font-weight: 500;">${
+                caseResult.crime_confidence || "Not available"
+              }</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 40px; padding: 20px; background: #f8f8f8; border-radius: 8px;">
+          <h3 style="color: #D83A3A; font-size: 20px; margin-bottom: 15px;">Evidence Analysis</h3>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            ${
+              caseResult.extracted_evidence
+                ?.map(
+                  (evidence) => `
+              <div style="padding: 15px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #333; font-weight: 500;">${evidence.label}</span>
+                <span style="color: #666; font-size: 14px;">Confidence: ${evidence.confidence}</span>
+              </div>
+            `
+                )
+                .join("") || "No evidence available"
+            }
+          </div>
+        </div>
+
+        <div style="padding: 20px; background: #f8f8f8; border-radius: 8px;">
+          <h3 style="color: #D83A3A; font-size: 20px; margin-bottom: 15px;">AI Analysis Summary</h3>
+          ${summary.candidates[0].content.parts[0].text
+            .split(/(?=\n[A-Z][A-Z\s]+:)/)
+            .map((section) => {
+              const [header, ...content] = section.split("\n");
+              if (!header.trim()) return "";
+
+              const cleanHeader = header.replace(/[:*]+/g, "").trim();
+
+              return `
+              <div style="margin-bottom: 25px; padding: 15px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <h4 style="color: #D83A3A; font-size: 18px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                  ${cleanHeader}
+                </h4>
+                <div style="color: #333; line-height: 1.6;">
+                  ${content
+                    .map((line) => {
+                      if (!line.trim()) return "";
+                      const keyValueMatch = line
+                        .trim()
+                        .match(/^([^:]+):\s*(.+)$/);
+                      const bulletMatch = line.trim().match(/^[-*]\s*(.+)$/);
+
+                      if (keyValueMatch) {
+                        return `
+                        <div style="margin-bottom: 10px; padding: 10px; background: #f8f8f8; border-radius: 4px;">
+                          <span style="color: #D83A3A; font-weight: 500;">${keyValueMatch[1].trim()}:</span>
+                          <span style="color: #333;">${keyValueMatch[2].trim()}</span>
+                        </div>
+                      `;
+                      }
+
+                      if (bulletMatch) {
+                        return `
+                        <div style="margin-bottom: 10px; padding: 10px; background: #f8f8f8; border-radius: 4px;">
+                          <span style="color: #D83A3A; margin-right: 8px;">•</span>
+                          <span style="color: #333;">${bulletMatch[1].trim()}</span>
+                        </div>
+                      `;
+                      }
+
+                      return `<p style="margin-bottom: 10px; padding: 10px; background: #f8f8f8; border-radius: 4px;">${line.trim()}</p>`;
+                    })
+                    .join("")}
+                </div>
+              </div>
+            `;
+            })
+            .join("")}
+        </div>
+      </div>
+    `;
+
+    tempContainer.innerHTML = content;
+    document.body.appendChild(tempContainer);
+
+    const opt = {
+      margin: [0.5, 0.5],
+      filename: `${caseName}_report.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: true,
+      },
+      jsPDF: {
+        unit: "in",
+        format: "letter",
+        orientation: "portrait",
+      },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+    };
+
+    html2pdf()
+      .set(opt)
+      .from(tempContainer)
+      .save()
+      .then(() => {
+        document.body.removeChild(tempContainer);
+      });
+  };
+
+  const renderCaseMedia = () => {
     const imageFiles = caseDetails.filter(
       (f) => f && f.contentType && f.contentType.startsWith("image")
     );
 
-    if (imageFiles.length === 0) {
+    const videoFiles = caseDetails.filter(
+      (f) => f && f.contentType && f.contentType.startsWith("video")
+    );
+
+    if (imageFiles.length === 0 && videoFiles.length === 0) {
       return (
         <div className="col-span-3 text-white text-center p-8 bg-black/30 rounded-lg">
-          No images available for this case.
+          No media available for this case.
         </div>
       );
     }
 
-    return imageFiles.map((file) => (
-      <motion.div
-        key={file._id}
-        className="relative group overflow-hidden rounded-lg border border-white/20 cursor-pointer"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        onClick={() => {
-          setModalImage(`http://localhost:5000/api/upload/file/${file._id}`);
-          setModalOpen(true);
-        }}
-      >
-        <img
-          src={`http://localhost:5000/api/upload/file/${file._id}`}
-          alt={file.filename || "Case image"}
-          className="w-full h-56 object-cover transform group-hover:scale-105 transition duration-300 ease-in-out"
-        />
-        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">
-          {file.filename}
+    return (
+      <>
+        {videoFiles.map((file) => (
+          <motion.div
+            key={file._id}
+            className="relative group overflow-hidden rounded-lg border border-white/20 col-span-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <video
+              controls
+              className="w-full rounded-lg"
+              style={{ maxHeight: "400px" }}
+            >
+              <source
+                src={`http://localhost:5000/api/upload/file/${file._id}`}
+                type={file.contentType}
+              />
+              Your browser does not support the video tag.
+            </video>
+            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">
+              {file.filename}
+            </div>
+          </motion.div>
+        ))}
+
+        {imageFiles.map((file) => (
+          <motion.div
+            key={file._id}
+            className="relative group overflow-hidden rounded-lg border border-white/20 cursor-pointer"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            onClick={() => {
+              setModalImage(
+                `http://localhost:5000/api/upload/file/${file._id}`
+              );
+              setModalOpen(true);
+            }}
+          >
+            <img
+              src={`http://localhost:5000/api/upload/file/${file._id}`}
+              alt={file.filename || "Case image"}
+              className="w-full h-56 object-cover transform group-hover:scale-105 transition duration-300 ease-in-out"
+            />
+            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">
+              {file.filename}
+            </div>
+          </motion.div>
+        ))}
+      </>
+    );
+  };
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+
+    const videoFiles = files.filter((file) => file.type.startsWith("video/"));
+
+    if (videoFiles.length > 0) {
+      if (files.length > 1) {
+        setUploadError("Please upload only one video file at a time");
+        e.target.value = "";
+        return;
+      }
+    }
+
+    setNewFiles(files);
+    setUploadError("");
+  };
+
+  const handleAnalyzeCase = async () => {
+    if (!selectedCase) {
+      setUploadError("Please select a case first");
+      return;
+    }
+
+    if (newFiles.length === 0) {
+      setUploadError("Please select at least one file");
+      return;
+    }
+
+    const isVideoUpload = newFiles.some((file) =>
+      file.type.startsWith("video/")
+    );
+
+    if (!isVideoUpload && newFiles.length < 1) {
+      setUploadError("Please select at least one image");
+      return;
+    }
+
+    setUploadLoading(true);
+    setUploadError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("email", email);
+      formData.append("caseName", selectedCase);
+      newFiles.forEach((file) => formData.append("files", file));
+
+      const response = await axios.post(
+        "http://localhost:5000/api/upload/add-to-case",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      if (response.data.result) {
+        setCaseResult(response.data.result);
+        setNewFiles([]);
+
+        await handleCaseClick(selectedCase);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadError(
+        error.response?.data?.error ||
+          "Error processing case. Please try again."
+      );
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) fileInput.value = "";
+      setNewFiles([]);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const renderCaseDetails = () => {
+    if (!selectedCase || !caseDetails || caseDetails.length === 0) return null;
+
+    const caseResult = caseDetails[0]?.metadata?.caseResult || {};
+    const caseSummary = caseDetails[0]?.metadata?.caseSummary;
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-black/40 p-6 rounded-xl border border-gray-700/50">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-2xl font-semibold text-white">Case Summary</h3>
+            <button
+              onClick={() => handleDownloadPDF(selectedCase, caseSummary)}
+              className="flex items-center px-4 py-2 bg-[#D83A3A] text-white rounded-lg hover:bg-[#B92B2B] transition-all"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              Download PDF
+            </button>
+          </div>
+
+          <div className="grid gap-6">
+            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
+              <h4 className="text-xl font-medium text-[#D83A3A] mb-4">
+                Crime Scene Classification
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-black/30 p-3 rounded-lg">
+                  <p className="text-gray-400 text-sm">Type:</p>
+                  <p className="text-white">
+                    {caseResult.predicted_class || "Not available"}
+                  </p>
+                </div>
+                <div className="bg-black/30 p-3 rounded-lg">
+                  <p className="text-gray-400 text-sm">Confidence:</p>
+                  <p className="text-white">
+                    {caseResult.crime_confidence || "Not available"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {caseResult.extracted_evidence && (
+              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
+                <h4 className="text-xl font-medium text-[#D83A3A] mb-4">
+                  Evidence Analysis
+                </h4>
+                <div className="space-y-3">
+                  {caseResult.extracted_evidence.map((evidence, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-black/30 p-3 rounded-lg flex justify-between items-center"
+                    >
+                      <span className="text-white">{evidence.label}</span>
+                      <span className="text-sm text-gray-300">
+                        Confidence: {evidence.confidence}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {caseSummary && (
+              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
+                <h4 className="text-xl font-medium text-[#D83A3A] mb-4">
+                  AI Analysis Summary
+                </h4>
+                <div className="bg-black/30 p-4 rounded-lg">
+                  <div className="prose prose-invert max-w-none">
+                    {formatGeminiOutput(
+                      caseSummary.candidates[0].content.parts[0].text
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </motion.div>
-    ));
+      </div>
+    );
   };
 
   return (
@@ -268,6 +686,72 @@ export default function User() {
                 </span>
               </div>
 
+              <div className="mb-8 p-6 bg-black/30 rounded-xl border border-gray-700/50">
+                <h4 className="text-xl font-semibold text-white mb-4">
+                  Case Evidence
+                </h4>
+                <div className="space-y-4">
+                  <div>
+                    <input
+                      type="file"
+                      multiple={
+                        !newFiles.some((file) => file.type.startsWith("video/"))
+                      }
+                      accept="image/*,video/*"
+                      onChange={handleFileChange}
+                      className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-900/60 file:text-purple-200 hover:file:bg-purple-900/80 file:cursor-pointer"
+                    />
+                    <p className="mt-2 text-xs text-gray-400">
+                      You can upload multiple images or a single video file at a
+                      time
+                    </p>
+                  </div>
+                  {newFiles.length > 0 && (
+                    <div className="text-sm text-gray-400">
+                      {newFiles.length} new file(s) selected:{" "}
+                      {newFiles.map((f) => f.name).join(", ")}
+                    </div>
+                  )}
+                  {uploadError && (
+                    <div className="text-red-400 text-sm">{uploadError}</div>
+                  )}
+                  <div className="flex gap-4">
+                    <button
+                      onClick={handleAnalyzeCase}
+                      disabled={uploadLoading}
+                      className={`px-4 py-2 rounded-lg text-white font-medium ${
+                        uploadLoading
+                          ? "bg-gray-600 cursor-not-allowed"
+                          : "bg-purple-600 hover:bg-purple-700"
+                      } transition-colors flex items-center gap-2`}
+                    >
+                      {uploadLoading ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                          {newFiles.some((file) =>
+                            file.type.startsWith("video/")
+                          )
+                            ? "Processing Video..."
+                            : newFiles.length > 0
+                            ? "Uploading & Analyzing..."
+                            : "Analyzing..."}
+                        </>
+                      ) : (
+                        <>
+                          {newFiles.some((file) =>
+                            file.type.startsWith("video/")
+                          )
+                            ? "Process Video"
+                            : newFiles.length > 0
+                            ? "Upload & Analyze Evidence"
+                            : "Analyze Case"}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {loading ? (
                 <div className="flex justify-center items-center h-56">
                   <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white"></div>
@@ -275,256 +759,9 @@ export default function User() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                    {renderCaseImages()}
+                    {renderCaseMedia()}
                   </div>
-
-                  <div className="text-white">
-                    <h4 className="text-xl font-semibold mb-4 flex items-center">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 mr-2 text-purple-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                        />
-                      </svg>
-                      Case Analysis
-                    </h4>
-
-                    <div className="bg-black/40 p-6 rounded-md text-gray-200 overflow-auto max-h-96 border border-gray-700/50">
-                      {Object.keys(caseResult).length === 0 ? (
-                        <div className="text-center py-8">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-12 w-12 mx-auto mb-2 text-gray-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.5}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                          <p className="text-gray-400 italic">
-                            No case analysis available
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="grid gap-6 md:grid-cols-2">
-                          {caseResult.category && (
-                            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 shadow-inner">
-                              <h5 className="text-purple-300 font-medium mb-3 text-lg border-b border-gray-700 pb-2">
-                                Category Analysis
-                              </h5>
-                              <div className="space-y-2">
-                                {typeof caseResult.category === "string" ? (
-                                  <div className="px-3 py-2 bg-purple-900/30 text-white rounded-md">
-                                    {caseResult.category}
-                                  </div>
-                                ) : (
-                                  Object.entries(caseResult.category || {}).map(
-                                    ([key, value], idx) => (
-                                      <div
-                                        key={idx}
-                                        className="flex items-center justify-between"
-                                      >
-                                        <span className="text-gray-300 capitalize">
-                                          {key.replace(/_/g, " ")}
-                                        </span>
-                                        <span className="px-3 py-1 bg-purple-900/30 text-white rounded-md text-sm">
-                                          {typeof value === "object"
-                                            ? JSON.stringify(value)
-                                            : String(value)}
-                                        </span>
-                                      </div>
-                                    )
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {caseResult.detection && (
-                            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 shadow-inner">
-                              <h5 className="text-blue-300 font-medium mb-3 text-lg border-b border-gray-700 pb-2">
-                                Detection Results
-                              </h5>
-                              <div className="space-y-2">
-                                {typeof caseResult.detection === "string" ? (
-                                  <div className="px-3 py-2 bg-blue-900/30 text-white rounded-md">
-                                    {caseResult.detection}
-                                  </div>
-                                ) : (
-                                  Object.entries(
-                                    caseResult.detection || {}
-                                  ).map(([key, value], idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center justify-between"
-                                    >
-                                      <span className="text-gray-300 capitalize">
-                                        {key.replace(/_/g, " ")}
-                                      </span>
-                                      <span className="px-3 py-1 bg-blue-900/30 text-white rounded-md text-sm">
-                                        {typeof value === "object"
-                                          ? JSON.stringify(value)
-                                          : String(value)}
-                                      </span>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {caseResult.analysis && (
-                            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 shadow-inner md:col-span-2">
-                              <h5 className="text-green-300 font-medium mb-3 text-lg border-b border-gray-700 pb-2">
-                                Detailed Analysis
-                              </h5>
-                              <div className="space-y-2">
-                                {typeof caseResult.analysis === "string" ? (
-                                  <div className="px-3 py-2 bg-green-900/30 text-white rounded-md">
-                                    {caseResult.analysis}
-                                  </div>
-                                ) : (
-                                  Object.entries(caseResult.analysis || {}).map(
-                                    ([key, value], idx) => (
-                                      <div key={idx} className="mb-3 last:mb-0">
-                                        <h6 className="text-gray-300 capitalize mb-1 font-medium">
-                                          {key.replace(/_/g, " ")}
-                                        </h6>
-                                        <div className="px-3 py-2 bg-green-900/30 text-white rounded-md text-sm">
-                                          {typeof value === "object"
-                                            ? JSON.stringify(value)
-                                            : String(value)}
-                                        </div>
-                                      </div>
-                                    )
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {caseResult.recommendations && (
-                            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 shadow-inner md:col-span-2">
-                              <h5 className="text-amber-300 font-medium mb-3 text-lg border-b border-gray-700 pb-2">
-                                Recommendations
-                              </h5>
-                              <div className="space-y-2">
-                                {typeof caseResult.recommendations ===
-                                "string" ? (
-                                  <div className="px-3 py-2 bg-amber-900/30 text-white rounded-md">
-                                    {caseResult.recommendations}
-                                  </div>
-                                ) : Array.isArray(
-                                    caseResult.recommendations
-                                  ) ? (
-                                  <ul className="list-disc pl-5 space-y-1">
-                                    {caseResult.recommendations.map(
-                                      (item, idx) => (
-                                        <li
-                                          key={idx}
-                                          className="text-amber-100"
-                                        >
-                                          {item}
-                                        </li>
-                                      )
-                                    )}
-                                  </ul>
-                                ) : (
-                                  Object.entries(
-                                    caseResult.recommendations || {}
-                                  ).map(([key, value], idx) => (
-                                    <div key={idx} className="mb-3 last:mb-0">
-                                      <h6 className="text-gray-300 capitalize mb-1 font-medium">
-                                        {key.replace(/_/g, " ")}
-                                      </h6>
-                                      <div className="px-3 py-2 bg-amber-900/30 text-white rounded-md text-sm">
-                                        {typeof value === "object"
-                                          ? JSON.stringify(value)
-                                          : String(value)}
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {Object.entries(caseResult)
-                            .filter(
-                              ([key]) =>
-                                ![
-                                  "category",
-                                  "detection",
-                                  "analysis",
-                                  "recommendations",
-                                ].includes(key)
-                            )
-                            .map(([key, value], idx) => (
-                              <div
-                                key={idx}
-                                className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 shadow-inner"
-                              >
-                                <h5 className="text-gray-300 font-medium mb-3 text-lg border-b border-gray-700 pb-2 capitalize">
-                                  {key.replace(/_/g, " ")}
-                                </h5>
-                                <div className="space-y-2">
-                                  {typeof value === "string" ? (
-                                    <div className="px-3 py-2 bg-gray-800/80 text-white rounded-md">
-                                      {value}
-                                    </div>
-                                  ) : Array.isArray(value) ? (
-                                    <ul className="list-disc pl-5 space-y-1">
-                                      {value.map((item, idx) => (
-                                        <li key={idx}>
-                                          {typeof item === "object"
-                                            ? JSON.stringify(item)
-                                            : String(item)}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  ) : typeof value === "object" ? (
-                                    Object.entries(value || {}).map(
-                                      ([subKey, subValue], subIdx) => (
-                                        <div
-                                          key={subIdx}
-                                          className="flex items-center justify-between"
-                                        >
-                                          <span className="text-gray-300 capitalize">
-                                            {subKey.replace(/_/g, " ")}
-                                          </span>
-                                          <span className="px-3 py-1 bg-gray-800/80 text-white rounded-md text-sm">
-                                            {typeof subValue === "object"
-                                              ? JSON.stringify(subValue)
-                                              : String(subValue)}
-                                          </span>
-                                        </div>
-                                      )
-                                    )
-                                  ) : (
-                                    <div className="px-3 py-2 bg-gray-800/80 text-white rounded-md">
-                                      {String(value)}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  {renderCaseDetails()}
                 </>
               )}
             </motion.div>

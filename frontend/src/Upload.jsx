@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useDropzone } from "react-dropzone";
 import { useAuth } from "./context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import html2pdf from "html2pdf.js";
 
 const images = [
   "src/assets/crimeSceneImg.jpg",
@@ -20,10 +22,24 @@ function ImageUploader({ multiple, maxFiles, minFiles, onFilesChange }) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     multiple,
     onDrop: (acceptedFiles) => {
+      const videoFiles = acceptedFiles.filter((file) =>
+        file.type.startsWith("video/")
+      );
+
+      if (videoFiles.length > 0) {
+        if (acceptedFiles.length > 1) {
+          onFilesChange([], "Please upload only one video file at a time");
+          return;
+        }
+
+        onFilesChange(acceptedFiles, "");
+        return;
+      }
+
       if (acceptedFiles.length < minFiles) {
-        onFilesChange([], `You must upload at least ${minFiles} files.`);
+        onFilesChange([], `You must upload at least ${minFiles} images.`);
       } else if (acceptedFiles.length > maxFiles) {
-        onFilesChange([], `You can upload a maximum of ${maxFiles} files.`);
+        onFilesChange([], `You can upload a maximum of ${maxFiles} images.`);
       } else {
         onFilesChange(acceptedFiles, "");
       }
@@ -33,6 +49,8 @@ function ImageUploader({ multiple, maxFiles, minFiles, onFilesChange }) {
       "image/jpeg": [],
       "image/png": [],
       "video/mp4": [],
+      "video/mov": [],
+      "video/avi": [],
     },
   });
 
@@ -61,8 +79,12 @@ function ImageUploader({ multiple, maxFiles, minFiles, onFilesChange }) {
 
 export default function Upload() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [caseName, setCaseName] = useState("");
+  const [location, setLocation] = useState("");
+  const [date, setDate] = useState("");
+  const [crimeTime, setCrimeTime] = useState("");
   const [files, setFiles] = useState([]);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -93,8 +115,16 @@ export default function Upload() {
   };
 
   const handleAnalyze = async () => {
-    if (files.length < 4) {
-      setError("Please upload at least 4 valid files before proceeding.");
+    const videoFiles = files.filter((file) => file.type.startsWith("video/"));
+    const isVideoUpload = videoFiles.length > 0;
+
+    if (!isVideoUpload && files.length < 4) {
+      setError("Please upload at least 4 images or one video file.");
+      return;
+    }
+
+    if (isVideoUpload && files.length > 1) {
+      setError("Please upload only one video file at a time.");
       return;
     }
 
@@ -104,6 +134,9 @@ export default function Upload() {
     try {
       const inferenceForm = new FormData();
       inferenceForm.append("caseName", caseName);
+      inferenceForm.append("location", location);
+      inferenceForm.append("date", date);
+      inferenceForm.append("crimeTime", crimeTime);
       files.forEach((file) => inferenceForm.append("files", file));
       inferenceForm.append("email", user.email);
 
@@ -117,12 +150,15 @@ export default function Upload() {
         }
       );
 
-      const caseResult = JSON.stringify(inferenceRes.data.data);
+      const caseResult = inferenceRes.data.result;
 
       const finalFormData = new FormData();
       finalFormData.append("caseName", caseName);
+      finalFormData.append("location", location);
+      finalFormData.append("date", date);
+      finalFormData.append("crimeTime", crimeTime);
       finalFormData.append("email", user.email);
-      finalFormData.append("caseResult", caseResult);
+      finalFormData.append("caseResult", JSON.stringify(caseResult));
       files.forEach((file) => finalFormData.append("files", file));
 
       const uploadRes = await axios.post(
@@ -138,7 +174,16 @@ export default function Upload() {
       console.log("Upload success response:", uploadRes.data);
       setResponse(uploadRes.data);
       setError(null);
-      setActiveTab("Results");
+
+      navigate("/case-summary", {
+        state: {
+          caseData: caseResult,
+          caseName,
+          location,
+          date,
+          geminiOutput: uploadRes.data.geminiOutput,
+        },
+      });
     } catch (err) {
       console.error("Upload error:", err);
       setError(err.response?.data?.error || "Upload failed");
@@ -147,6 +192,37 @@ export default function Upload() {
       setProcessing(false);
     }
   };
+
+  // const handleDownloadReport = () => {
+  //   if (!response || !response.geminiOutput) return;
+
+  //   const reportText =
+  //     response.geminiOutput.candidates[0].content.parts[0].text;
+  //   const blob = new Blob([reportText], { type: "text/plain" });
+  //   const url = window.URL.createObjectURL(blob);
+  //   const a = document.createElement("a");
+  //   a.href = url;
+  //   a.download = `${caseName}_report.txt`;
+  //   document.body.appendChild(a);
+  //   a.click();
+  //   window.URL.revokeObjectURL(url);
+  //   document.body.removeChild(a);
+  // };
+
+  // const handleDownloadPDF = () => {
+  //   if (!response || !response.geminiOutput) return;
+
+  //   const reportContent = document.getElementById("report-content");
+  //   const opt = {
+  //     margin: 1,
+  //     filename: `${caseName}_report.pdf`,
+  //     image: { type: "jpeg", quality: 0.98 },
+  //     html2canvas: { scale: 2 },
+  //     jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+  //   };
+
+  //   html2pdf().set(opt).from(reportContent).save();
+  // };
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center bg-[#1A1A1A] p-6 overflow-auto font-serif">
@@ -199,32 +275,62 @@ export default function Upload() {
         {activeTab === "Upload" && (
           <>
             {step === 1 ? (
-              <>
-                <h2 className="text-4xl font-bold text-white">
-                  Enter Case Title
-                </h2>
+              <div className="space-y-4">
                 <input
                   type="text"
                   value={caseName}
                   onChange={(e) => setCaseName(e.target.value)}
-                  className="mt-6 p-3 rounded-2xl border border-gray-400 bg-transparent text-white placeholder-gray-400 w-full focus:outline-none focus:ring-2 focus:ring-[#D83A3A] transition-all"
-                  placeholder="Enter case title"
+                  placeholder="Enter case name"
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 text-white placeholder-gray-400 border border-gray-600 focus:border-[#D83A3A] focus:outline-none"
                 />
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-2">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Enter crime scene location"
+                      className="w-full px-4 py-2 rounded-lg bg-black/20 border border-gray-700/50 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-2">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg bg-black/20 border border-gray-700/50 text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-2">
+                      Approximate Time
+                    </label>
+                    <input
+                      type="time"
+                      value={crimeTime}
+                      onChange={(e) => setCrimeTime(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg bg-black/20 border border-gray-700/50 text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
                 <button
-                  onClick={() => {
-                    if (caseName.trim() === "") {
-                      setError("Case title cannot be empty.");
-                      return;
-                    }
-                    setStep(2);
-                    setError("");
-                  }}
-                  className="mt-6 px-6 py-3 bg-[#D83A3A] text-white rounded-2xl hover:bg-[#B92B2B] transition-all shadow-md"
+                  onClick={() => caseName && setStep(2)}
+                  disabled={!caseName}
+                  className={`w-full py-3 rounded-xl transition-all ${
+                    caseName
+                      ? "bg-[#D83A3A] text-white hover:bg-[#B92B2B]"
+                      : "bg-gray-400 text-gray-600 cursor-not-allowed"
+                  }`}
                 >
-                  Next
+                  Continue
                 </button>
-                {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
-              </>
+              </div>
             ) : (
               <>
                 <h2 className="text-4xl font-bold text-white">{caseName}</h2>
@@ -241,7 +347,7 @@ export default function Upload() {
                 </p>
                 <ImageUploader
                   multiple={true}
-                  maxFiles={15}
+                  maxFiles={500}
                   minFiles={4}
                   onFilesChange={handleFilesChange}
                 />
@@ -265,9 +371,15 @@ export default function Upload() {
                 )}
                 <button
                   onClick={handleAnalyze}
-                  disabled={files.length < 4}
+                  disabled={
+                    files.length === 0 ||
+                    (!files.some((file) => file.type.startsWith("video/")) &&
+                      files.length < 4)
+                  }
                   className={`mt-6 px-6 py-3 rounded-2xl transition-all shadow-md ${
-                    files.length >= 4
+                    files.length > 0 &&
+                    (files.some((file) => file.type.startsWith("video/")) ||
+                      files.length >= 4)
                       ? "bg-[#D83A3A] text-white hover:bg-[#B92B2B]"
                       : "bg-gray-400 text-gray-600 cursor-not-allowed"
                   }`}
@@ -291,36 +403,82 @@ export default function Upload() {
               Analysis Results
             </h2>
 
-            <div className="bg-black/30 p-4 rounded-xl">
-              <p className="text-xl">
-                <span className="font-semibold text-[#D83A3A]">
-                  Crime Type:
-                </span>{" "}
-                {response.files[0]?.metadata?.caseResult?.predicted_class ||
-                  "N/A"}
-              </p>
-              <p className="text-xl mt-4">
-                <span className="font-semibold text-[#D83A3A]">
-                  Confidence:
-                </span>{" "}
-                {response.files[0]?.metadata?.caseResult?.crime_confidence ||
-                  "N/A"}
-              </p>
-            </div>
+            <div
+              id="report-content"
+              className="bg-black/30 p-6 rounded-xl space-y-6"
+            >
+              <div className="mb-4">
+                <h3 className="text-xl font-semibold text-[#D83A3A] mb-2">
+                  Case Details
+                </h3>
+                <p>
+                  <span className="font-medium">Case Name:</span> {caseName}
+                </p>
+                <p>
+                  <span className="font-medium">Location:</span>{" "}
+                  {location || "Not provided"}
+                </p>
+                <p>
+                  <span className="font-medium">Date:</span>{" "}
+                  {date || "Not provided"}
+                </p>
+              </div>
 
-            <div className="bg-black/30 p-4 rounded-xl">
-              <p className="text-xl font-semibold text-[#D83A3A] mb-2">
-                Extracted Evidence:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-lg">
-                {response.files[0]?.metadata?.caseResult?.extracted_evidence?.map(
-                  (evidence, i) => (
-                    <li key={i}>
-                      {evidence.label} (Confidence: {evidence.confidence})
-                    </li>
-                  )
-                ) || <li>No evidence found</li>}
-              </ul>
+              <div className="mb-4">
+                <h3 className="text-xl font-semibold text-[#D83A3A] mb-2">
+                  AI Analysis
+                </h3>
+                <p>
+                  <span className="font-medium">Crime Type:</span>{" "}
+                  {response.files[0]?.metadata?.caseResult?.predicted_class ||
+                    "N/A"}
+                </p>
+                <p>
+                  <span className="font-medium">Confidence:</span>{" "}
+                  {response.files[0]?.metadata?.caseResult?.crime_confidence ||
+                    "N/A"}
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <h3 className="text-xl font-semibold text-[#D83A3A] mb-2">
+                  Extracted Evidence
+                </h3>
+                <ul className="list-disc list-inside space-y-2">
+                  {response.files[0]?.metadata?.caseResult?.extracted_evidence?.map(
+                    (evidence, i) => (
+                      <li key={i}>
+                        {evidence.label} (Confidence: {evidence.confidence})
+                      </li>
+                    )
+                  ) || <li>No evidence found</li>}
+                </ul>
+              </div>
+
+              {response.geminiOutput && (
+                <div className="mt-6">
+                  <h3 className="text-xl font-semibold text-[#D83A3A] mb-4">
+                    Case Summary Report
+                  </h3>
+                  <div className="bg-black/20 p-4 rounded-lg whitespace-pre-wrap font-mono text-sm">
+                    {response.geminiOutput.candidates[0].content.parts[0].text}
+                  </div>
+                  <div className="flex gap-4 mt-6">
+                    <button
+                      onClick={handleDownloadReport}
+                      className="bg-[#D83A3A] text-white px-6 py-3 rounded-xl hover:bg-[#B92B2B] transition-all flex-1"
+                    >
+                      Download as Text
+                    </button>
+                    <button
+                      onClick={handleDownloadPDF}
+                      className="bg-[#D83A3A] text-white px-6 py-3 rounded-xl hover:bg-[#B92B2B] transition-all flex-1"
+                    >
+                      Download as PDF
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
