@@ -4,3 +4,4 @@ backend/.env
 backend/node_modules
 backendflask/venv/
 backendflask/__pycache__/
+backendflask/clip_finetuned_few_shot.pth
