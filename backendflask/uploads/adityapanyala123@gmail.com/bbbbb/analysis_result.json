@@ -1,1 +1,0 @@
-{"status": "success", "analysis": {"predicted_class": "Shoplifting", "crime_confidence": 1.0, "extracted_evidence": [{"label": "Fire", "confidence": 0.967}, {"label": "Smoke", "confidence": 0.985}]}}

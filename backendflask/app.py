@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from pymongo import MongoClient
-from crime_pipeline import load_models, predict_multiple, process_crime_scene
+from crime_pipeline_few_shot import load_models, predict_single_image, predict_multiple_images, process_crime_scene, extract_frames
 from datetime import datetime
 import os
 from werkzeug.utils import secure_filename
@@ -9,11 +9,14 @@ import json
 import shutil
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app) 
 
-load_models(vit_checkpoint="vit_model.pth")
+load_models(
+    vit_checkpoint="vit_model.pth",
+    clip_checkpoint="clip_finetuned_few_shot.pth" 
+)
 
-client = MongoClient("mongodb+srv://adityapanyala:Sanjeeva7@nodeexpressprojects.m2toq.mongodb.net/crimescene?retryWrites=true&w=majority&appName=NodeExpressProjects")  # your connection string
+client = MongoClient("mongodb+srv://adityapanyala:Sanjeeva7@nodeexpressprojects.m2toq.mongodb.net/crimescene?retryWrites=true&w=majority&appName=NodeExpressProjects") 
 db = client["crime_db"]
 collection = db["predictions"]
 
@@ -54,16 +57,23 @@ def process_uploaded_files(files, case_dir):
                 file.save(file_path)
                 
                 if is_video_file(filename):
-                    # For videos, extract frames and add their paths
+                    
                     print(f"Processing video file: {filename}")
                     video_name = os.path.splitext(filename)[0]
                     frames_dir = os.path.join(FRAMES_FOLDER, video_name)
-                    frame_paths = predict_multiple(file_path)  # This will extract frames and return their paths
-                    if isinstance(frame_paths, list):
+                    
+                    
+                    frame_paths = extract_frames(file_path, FRAMES_FOLDER)
+                    if frame_paths:
                         image_paths.extend(frame_paths)
+                        print(f"✅ Extracted {len(frame_paths)} frames from {filename}")
+                    else:
+                        print(f"⚠️ No frames extracted from {filename}")
+                        
                 elif filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
-                    # For images, add directly to the list
+                    
                     image_paths.append(file_path)
+                    print(f"✅ Added image: {filename}")
         
         return image_paths, frames_dir
     except Exception as e:
@@ -79,22 +89,28 @@ def upload():
     if len(files) == 0:
         return jsonify({"error": "No files received"}), 400
 
-    results = []
     file_paths = []
 
     for file in files:
         if file and file.filename:
-            path = os.path.join(UPLOAD_FOLDER, file.filename)
+            path = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
             file.save(path)
             file_paths.append(path)
 
-    # If one video, treat as video
-    if len(file_paths) == 1 and file_paths[0].lower().endswith((".mp4", ".mov")):
-        result = predict_multiple(file_paths[0])
+    
+    if len(file_paths) == 1:
+        file_path = file_paths[0]
+        if is_video_file(file_path):
+            
+            result = predict_multiple_images(file_path)
+        else:
+            
+            result = predict_single_image(file_path)
     else:
-        result = predict_multiple(file_paths)
+        
+        result = predict_multiple_images(file_paths)
 
-    # Save to DB
+    
     collection.insert_one({
         "timestamp": datetime.now().isoformat(),
         "result": result
@@ -114,7 +130,7 @@ def add_to_case():
         if not email or not case_name:
             return jsonify({'error': 'Email and case name are required'}), 400
 
-        # Create case directory structure
+        
         case_dir = os.path.join(app.config['UPLOAD_FOLDER'], email, case_name)
         os.makedirs(case_dir, exist_ok=True)
 
@@ -122,40 +138,49 @@ def add_to_case():
         if not files:
             return jsonify({'error': 'No files provided'}), 400
 
-        # Check if we have a video file
+        
         video_files = [f for f in files if f.filename and is_video_file(f.filename)]
         
-        # If we have a video file, we don't need multiple files
+        
         if video_files:
             if len(files) > 1:
                 return jsonify({'error': 'Please upload only one video file at a time'}), 400
         else:
-            # For images, we need at least one file
+            
             if len(files) < 1:
                 return jsonify({'error': 'Please upload at least one image'}), 400
 
-        # Process all uploaded files
+        
         image_paths, frames_dir = process_uploaded_files(files, case_dir)
 
         if not image_paths:
             return jsonify({'error': 'No valid image or video files provided'}), 400
 
-        # Process the crime scene with all images
+        print(f"📊 Processing {len(image_paths)} images/frames for case analysis...")
+
+        
         analysis_result = process_crime_scene(image_paths)
         
-        # Add time-related information to the analysis result
-        analysis_result['scene_details'] = {
-            'location': location,
-            'date': date,
-            'time': crime_time
-        }
+        
+        if analysis_result.get('status') == 'success':
+            analysis_result['analysis']['scene_details'] = {
+                'location': location,
+                'date': date,
+                'time': crime_time
+            }
+        else:
+            analysis_result['scene_details'] = {
+                'location': location,
+                'date': date,
+                'time': crime_time
+            }
 
-        # Save the analysis result
+        
         result_file = os.path.join(case_dir, 'analysis_result.json')
         with open(result_file, 'w') as f:
             json.dump(analysis_result, f)
 
-        # Clean up local files after analysis
+        
         cleanup_files(case_dir, frames_dir)
 
         return jsonify({
@@ -164,7 +189,7 @@ def add_to_case():
         }), 200
 
     except Exception as e:
-        print(f"Error in add_to_case: {str(e)}")  # Add logging
+        print(f"Error in add_to_case: {str(e)}") 
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/upload/reanalyze', methods=['POST'])
@@ -179,10 +204,9 @@ def reanalyze_case():
 
         case_dir = os.path.join(app.config['UPLOAD_FOLDER'], email, case_name)
         if not os.path.exists(case_dir):
-            os.makedirs(case_dir, exist_ok=True)
-            return jsonify({'error': 'No images found in case'}), 400
+            return jsonify({'error': 'Case directory not found'}), 400
 
-        # Get all image and video files in the case directory
+        
         all_files = []
         for root, _, files in os.walk(case_dir):
             for file in files:
@@ -192,36 +216,49 @@ def reanalyze_case():
         if not all_files:
             return jsonify({'error': 'No images or videos found in case'}), 400
 
-        # Process all files
+        
         image_paths = []
         frames_dir = None
+        
         for file_path in all_files:
             if is_video_file(file_path):
-                # For videos, extract frames
+                
                 video_name = os.path.splitext(os.path.basename(file_path))[0]
                 frames_dir = os.path.join(FRAMES_FOLDER, video_name)
-                frame_paths = predict_multiple(file_path)
-                if isinstance(frame_paths, list):
+                
+                
+                frame_paths = extract_frames(file_path, FRAMES_FOLDER)
+                if frame_paths:
                     image_paths.extend(frame_paths)
+                    print(f"✅ Re-extracted {len(frame_paths)} frames from {os.path.basename(file_path)}")
             else:
-                # For images, add directly
+                
                 image_paths.append(file_path)
 
-        # Process the crime scene with all images
+        if not image_paths:
+            return jsonify({'error': 'No valid images or video frames found'}), 400
+
+        print(f"📊 Re-analyzing {len(image_paths)} images/frames...")
+
+        
         analysis_result = process_crime_scene(image_paths)
 
-        # Save the analysis result
+        
         result_file = os.path.join(case_dir, 'analysis_result.json')
         with open(result_file, 'w') as f:
             json.dump(analysis_result, f)
 
-        # Clean up local files after analysis
-        cleanup_files(case_dir, frames_dir)
+        
+        if frames_dir and os.path.exists(frames_dir):
+            try:
+                shutil.rmtree(frames_dir)
+            except Exception as e:
+                print(f"Warning: Could not clean up frames directory: {e}")
 
         return jsonify({'message': 'Case reanalyzed successfully', 'result': analysis_result}), 200
 
     except Exception as e:
-        print(f"Error in reanalyze_case: {str(e)}")  # Add logging
+        print(f"Error in reanalyze_case: {str(e)}") 
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":

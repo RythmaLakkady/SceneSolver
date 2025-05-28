@@ -1,1 +1,0 @@
-{"status": "success", "analysis": {"predicted_class": "NormalVideos", "crime_confidence": 0.412, "extracted_evidence": [{"label": "Crowd", "confidence": 0.848}, {"label": "Blood", "confidence": 0.606}, {"label": "Person", "confidence": 0.772}, {"label": "Bag", "confidence": 0.44}, {"label": "Car", "confidence": 0.811}]}}
