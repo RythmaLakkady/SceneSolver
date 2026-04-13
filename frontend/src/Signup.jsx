@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import OTPVerification from "./components/OTPVerification";
+import { BACKEND_URL } from "./config";
 
 const images = [
   "src/assets/crimeSceneImg.jpg",
@@ -181,7 +182,7 @@ export default function Signup() {
             <motion.button
               type="button"
               onClick={() =>
-                (window.location.href = "http://localhost:5000/api/auth/google")
+                (window.location.href = `${BACKEND_URL}/api/auth/google`)
               }
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

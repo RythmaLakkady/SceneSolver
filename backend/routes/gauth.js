@@ -22,7 +22,7 @@ router.get(
 router.get(
   "/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "http://localhost:5173/login",
+    failureRedirect: `${process.env.CORS_ORIGIN || "http://localhost:5173"}/login`,
     session: false,
   }),
   (req, res) => {
@@ -30,10 +30,10 @@ router.get(
       const token = jwt.sign({ userId: req.user._id }, process.env.JWT_SECRET, {
         expiresIn: "24h",
       });
-      res.redirect(`http://localhost:5173/auth/callback?token=${token}`);
+      res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:5173"}/auth/callback?token=${token}`);
     } catch (error) {
       console.error("Callback error:", error);
-      res.redirect("http://localhost:5173/login");
+      res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:5173"}/login`);
     }
   }
 );

@@ -16,7 +16,7 @@ load_models(
     clip_checkpoint="clip_finetuned_few_shot.pth" 
 )
 
-client = MongoClient("mongodb+srv://adityapanyala:Sanjeeva7@nodeexpressprojects.m2toq.mongodb.net/crimescene?retryWrites=true&w=majority&appName=NodeExpressProjects") 
+client = MongoClient(os.environ.get("MONGODB_URI", "mongodb+srv://adityapanyala:Sanjeeva7@nodeexpressprojects.m2toq.mongodb.net/crimescene?retryWrites=true&w=majority&appName=NodeExpressProjects"))
 db = client["crime_db"]
 collection = db["predictions"]
 
@@ -262,4 +262,5 @@ def reanalyze_case():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False)

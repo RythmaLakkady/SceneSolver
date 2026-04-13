@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { BACKEND_URL } from "./config";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./context/AuthContext";
 import html2pdf from "html2pdf.js";
@@ -42,7 +43,7 @@ export default function User() {
   const fetchUserCases = async () => {
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/upload/user?email=${email}`
+        `${BACKEND_URL}/api/upload/user?email=${email}`
       );
       // console.log("Raw case data:", res.data);
 
@@ -68,7 +69,7 @@ export default function User() {
 
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/upload/user/case?email=${email}&caseName=${caseName}`
+        `${BACKEND_URL}/api/upload/user/case?email=${email}&caseName=${caseName}`
       );
 
       setCaseDetails(res.data);
@@ -216,7 +217,7 @@ export default function User() {
 
         <div style="padding: 20px; background: #f8f8f8; border-radius: 8px;">
           <h3 style="color: #D83A3A; font-size: 20px; margin-bottom: 15px;">AI Analysis Summary</h3>
-          ${summary.candidates[0].content.parts[0].text
+          ${summary?.candidates?.[0]?.content?.parts?.[0]?.text
             .split(/(?=\n[A-Z][A-Z\s]+:)/)
             .map((section) => {
               const [header, ...content] = section.split("\n");
@@ -330,7 +331,7 @@ export default function User() {
               style={{ maxHeight: "400px" }}
             >
               <source
-                src={`http://localhost:5000/api/upload/file/${file._id}`}
+                src={`${BACKEND_URL}/api/upload/file/${file._id}`}
                 type={file.contentType}
               />
               Your browser does not support the video tag.
@@ -350,13 +351,13 @@ export default function User() {
             transition={{ duration: 0.5 }}
             onClick={() => {
               setModalImage(
-                `http://localhost:5000/api/upload/file/${file._id}`
+                `${BACKEND_URL}/api/upload/file/${file._id}`
               );
               setModalOpen(true);
             }}
           >
             <img
-              src={`http://localhost:5000/api/upload/file/${file._id}`}
+              src={`${BACKEND_URL}/api/upload/file/${file._id}`}
               alt={file.filename || "Case image"}
               className="w-full h-56 object-cover transform group-hover:scale-105 transition duration-300 ease-in-out"
             />
@@ -416,7 +417,7 @@ export default function User() {
       newFiles.forEach((file) => formData.append("files", file));
 
       const response = await axios.post(
-        "http://localhost:5000/api/upload/add-to-case",
+        `${BACKEND_URL}/api/upload/add-to-case`,
         formData,
         {
           headers: {
@@ -528,7 +529,7 @@ export default function User() {
                 <div className="bg-black/30 p-4 rounded-lg">
                   <div className="prose prose-invert max-w-none">
                     {formatGeminiOutput(
-                      caseSummary.candidates[0].content.parts[0].text
+                      caseSummary?.candidates?.[0]?.content?.parts?.[0]?.text || "AI summary could not be generated."
                     )}
                   </div>
                 </div>

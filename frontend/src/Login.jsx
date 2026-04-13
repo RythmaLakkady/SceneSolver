@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import googleIcon from "./assets/google_img.png";
+import { BACKEND_URL } from "./config";
 
 // Import images correctly
 import crimeSceneImg from "./assets/crimeSceneImg.jpg";
@@ -54,7 +55,7 @@ export default function Login() {
 
   const handleGoogleLogin = () => {
     // Make sure the URL dynamically matches your environment (dev/prod)
-    window.location.href = "http://localhost:5000/api/auth/google";
+    window.location.href = `${BACKEND_URL}/api/auth/google`;
   };
 
   return (

@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+uploads/
+frames/
+clip_finetuned_few_shot.pth
+clip_model_weights.pth
+hf_cache/

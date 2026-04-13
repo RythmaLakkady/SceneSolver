@@ -5,6 +5,7 @@ import { useAuth } from "./context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import html2pdf from "html2pdf.js";
+import { BACKEND_URL, FLASK_URL } from "./config";
 
 const images = [
   "src/assets/crimeSceneImg.jpg",
@@ -141,7 +142,7 @@ export default function Upload() {
       inferenceForm.append("email", user.email);
 
       const inferenceRes = await axios.post(
-        "http://127.0.0.1:5000/upload",
+        `${FLASK_URL}/upload`,
         inferenceForm,
         {
           headers: {
@@ -162,7 +163,7 @@ export default function Upload() {
       files.forEach((file) => finalFormData.append("files", file));
 
       const uploadRes = await axios.post(
-        "http://localhost:5000/api/upload",
+        `${BACKEND_URL}/api/upload`,
         finalFormData,
         {
           headers: {
@@ -461,7 +462,7 @@ export default function Upload() {
                     Case Summary Report
                   </h3>
                   <div className="bg-black/20 p-4 rounded-lg whitespace-pre-wrap font-mono text-sm">
-                    {response.geminiOutput.candidates[0].content.parts[0].text}
+                    {response.geminiOutput?.candidates?.[0]?.content?.parts?.[0]?.text || "AI summary could not be generated."}
                   </div>
                   <div className="flex gap-4 mt-6">
                     <button

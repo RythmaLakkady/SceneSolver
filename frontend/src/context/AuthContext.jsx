@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { BACKEND_URL } from "../config";
 
 const AuthContext = createContext(null);
 
@@ -21,7 +22,7 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/current_user",
+        `${BACKEND_URL}/api/auth/current_user`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -48,7 +49,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/local/login",
+        `${BACKEND_URL}/api/auth/local/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -83,7 +84,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log("Sending registration data:", userData);
       const response = await fetch(
-        "http://localhost:5000/api/auth/local/register",
+        `${BACKEND_URL}/api/auth/local/register`,
         {
           method: "POST",
           headers: {
@@ -116,7 +117,7 @@ export const AuthProvider = ({ children }) => {
   const verifyOTP = async (userId, otp) => {
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/local/verify-otp",
+        `${BACKEND_URL}/api/auth/local/verify-otp`,
         {
           method: "POST",
           headers: {
@@ -146,7 +147,7 @@ export const AuthProvider = ({ children }) => {
   const resendOTP = async (userId) => {
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/local/resend-otp",
+        `${BACKEND_URL}/api/auth/local/resend-otp`,
         {
           method: "POST",
           headers: {
@@ -182,7 +183,7 @@ export const AuthProvider = ({ children }) => {
       try {
         localStorage.setItem("token", token);
         const response = await fetch(
-          "http://localhost:5000/api/auth/current_user",
+          `${BACKEND_URL}/api/auth/current_user`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

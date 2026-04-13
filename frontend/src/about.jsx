@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
+import crimeSceneImg from "./assets/crimeSceneImg.jpg";
+import cs1 from "./assets/cs1.jpg";
+import cs2 from "./assets/cs2.jpg";
+import cs3 from "./assets/cs3.jpg";
+import cs4 from "./assets/cs4.jpeg";
+import cs5 from "./assets/cs5.jpeg";
+import cs6 from "./assets/cs6.jpeg";
+import cs7 from "./assets/cs7.jpeg";
+import cs8 from "./assets/cs8.jpeg";
 
-const images = [
-  "src/assets/crimeSceneImg.jpg",
-  "src/assets/cs1.jpg",
-  "src/assets/cs2.jpg",
-  "src/assets/cs3.jpg",
-  "src/assets/cs4.jpeg",
-  "src/assets/cs5.jpeg",
-  "src/assets/cs6.jpeg",
-  "src/assets/cs7.jpeg",
-  "src/assets/cs8.jpeg",
-];
+const images = [crimeSceneImg, cs1, cs2, cs3, cs4, cs5, cs6, cs7, cs8];
 
 export default function About() {
   const [index, setIndex] = useState(0);
@@ -138,7 +137,7 @@ export default function About() {
             </div>
             <div className="lg:w-1/2 flex justify-center">
               <motion.img
-                src="src/assets/howitworks.png"
+                src={new URL('./assets/howitworks.png', import.meta.url).href}
                 alt="How It Works"
                 className="w-full max-w-sm rounded-lg shadow-lg"
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -153,14 +152,10 @@ export default function About() {
         <div className="p-10 mb-16"> {/* Added mb-16 for extra spacing */}
           <h2 className="text-4xl font-bold text-center mb-5 text-white">Meet the Developers</h2>
           <p className="text-gray-300 text-center mb-2">The minds behind SceneSolver</p>
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
             {[
-              { name: "Rythma Lakkady", linkedin: "https://www.linkedin.com/in/rythma-lakkady-1725852a2", github: "https://github.com/RythmaLakkady" },
-              { name: "Rishab Deshpande", linkedin: "https://www.linkedin.com/in/rishab-deshpande-828537350", github: "https://github.com/RishabDeshpande" },
-              { name: "Leela Dhari", linkedin: "https://www.linkedin.com/in/leela-dhari-22a857", github: "https://github.com/leeladhari" },
-              { name: "Y Tripura", linkedin: "https://www.linkedin.com/in/tripura-y-a5a43b307", github: "https://github.com/tripuray" },
-              { name: "Koppula Tushar", linkedin: "https://www.linkedin.com/in/tusshar-koppula-79a3312b0", github: "https://github.com/Tusshar-K" },
               { name: "Aditya Panyala", linkedin: "https://www.linkedin.com/in/adityapanyala", github: "https://github.com/EpicDino7" },
+              { name: "Rishab Deshpande", linkedin: "https://www.linkedin.com/in/rishab-deshpande-828537350", github: "https://github.com/RishabDeshpande" },
             ].map((dev, index) => (
               <div
                 key={index}

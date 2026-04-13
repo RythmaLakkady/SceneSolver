@@ -145,7 +145,7 @@ export default function CaseSummary() {
 
         <div style="padding: 20px; background: #f8f8f8; border-radius: 8px;">
           <h3 style="color: #D83A3A; font-size: 20px; margin-bottom: 15px;">AI Analysis Summary</h3>
-          ${geminiOutput.candidates[0].content.parts[0].text
+          ${geminiOutput?.candidates?.[0]?.content?.parts?.[0]?.text
             .split(/(?=\n[A-Z][A-Z\s]+:)/)
             .map((section) => {
               const [header, ...content] = section.split("\n");
@@ -351,7 +351,8 @@ export default function CaseSummary() {
                 <div className="prose prose-invert max-w-none">
                   <div className="space-y-4 text-gray-300">
                     {formatGeminiOutput(
-                      geminiOutput.candidates[0].content.parts[0].text
+                      geminiOutput?.candidates?.[0]?.content?.parts?.[0]?.text ||
+                      "AI summary could not be generated."
                     )}
                   </div>
                 </div>
