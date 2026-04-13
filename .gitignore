@@ -5,3 +5,6 @@ backend/node_modules
 backendflask/venv/
 backendflask/__pycache__/
 backendflask/clip_finetuned_few_shot.pth
+backendflask/clip_model_weights.pth
+backendflask/uploads/**/*.mp4
+backendflask/uploads/*.mp4
