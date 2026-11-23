@@ -1,161 +1,189 @@
-/* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
-import googleIcon from "./assets/google_img.png";
 import { BACKEND_URL } from "./config";
-
-// Import images correctly
-import crimeSceneImg from "./assets/crimeSceneImg.jpg";
-import cs1 from "./assets/cs1.jpg";
-import cs2 from "./assets/cs2.jpg";
-import cs3 from "./assets/cs3.jpg";
-import cs4 from "./assets/cs4.jpeg";
-import cs5 from "./assets/cs5.jpeg";
-import cs6 from "./assets/cs6.jpeg";
-import cs7 from "./assets/cs7.jpeg";
-import cs8 from "./assets/cs8.jpeg";
-
-const images = [crimeSceneImg, cs1, cs2, cs3, cs4, cs5, cs6, cs7, cs8];
+import { Fingerprint, Lock, Mail, AlertCircle, Loader2, ArrowRight, Zap } from "lucide-react";
+import googleIcon from "./assets/google_img.png";
 
 export default function Login() {
   const auth = useAuth();
   const login = auth?.login;
+  const demoLogin = auth?.demoLogin;
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false); // Loading state
-  const navigate = useNavigate(); // Hook for navigation
-
-  // Auto-change background every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % images.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true); // Start loading state
+    setLoading(true);
 
-    const result = await login({ email, password });
-    setLoading(false); // End loading state
+    try {
+      const result = await login({ email, password });
+      if (result.success) {
+        navigate("/");
+      } else {
+        setError(result.error || "Authentication failed");
+      }
+    } catch (err) {
+      setError(err.message || "An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    if (result.success) {
-      // Redirect to dashboard or home page on success
-      navigate("/"); // Use navigate for redirection
-    } else {
-      setError(result.error || "Login failed");
+  const handleDemoAccess = async () => {
+    setError("");
+    setDemoLoading(true);
+    try {
+      const result = await demoLogin();
+      if (result.success) {
+        navigate("/");
+      } else {
+        setError(result.error || "Demo login failed");
+      }
+    } catch (err) {
+      setError(err.message || "An unexpected error occurred");
+    } finally {
+      setDemoLoading(false);
     }
   };
 
   const handleGoogleLogin = () => {
-    // Make sure the URL dynamically matches your environment (dev/prod)
     window.location.href = `${BACKEND_URL}/api/auth/google`;
   };
 
   return (
-    <section className="relative w-full h-screen flex flex-col text-center px-6 overflow-hidden">
-      {/* Background Image Slider */}
-      <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
-        {images.map((img, i) => (
-          <motion.img
-            key={i}
-            src={img}
-            className="absolute w-full h-full object-cover blur-lg"
-            style={{ opacity: i === index ? 1 : 0 }}
-            animate={{ opacity: i === index ? 1 : 0 }}
-            transition={{ duration: 2, ease: "easeInOut" }}
-          />
-        ))}
-      </div>
-
-      {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
-
-      Header
-      <header className="relative z-10 text-white text-2xl font-bold py-4">
-        SceneSolver
-      </header>
-
-      {/* Login Box */}
-      <div className="flex-grow flex justify-center items-center">
-        <motion.div
-          className="relative z-10 bg-white/10 backdrop-blur-lg p-10 rounded-xl shadow-xl max-w-md w-full"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
-        >
-          <h2 className="text-4xl font-bold text-white">Welcome Back!</h2>
-          <p className="text-gray-300 mt-3 text-lg">Log in to continue</p>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-500/20 text-red-100 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {/* Login Form */}
-          <form onSubmit={handleLogin} className="mt-6 space-y-5">
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full px-5 py-4 rounded-lg bg-white/20 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#D83A3A]"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full px-5 py-4 rounded-lg bg-white/20 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#D83A3A]"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-
-            {/* Buttons */}
-            <motion.button
-              type="submit"
-              disabled={loading}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full px-5 py-4 bg-[#D83A3A] text-white font-semibold text-lg rounded-lg shadow-md transition-all duration-300 hover:bg-[#B92B2B] disabled:opacity-50"
-            >
-              {loading ? "Logging In..." : "Login"}
-            </motion.button>
-            <motion.button
-              type="button"
-              onClick={handleGoogleLogin}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full px-6 py-4 bg-white text-gray-700 font-semibold text-lg rounded-lg shadow-md transition-all duration-300 flex items-center justify-center"
-            >
-              <img
-                src={googleIcon}
-                alt="Google"
-                className="w-6 h-6 mr-2"
-              />
-              Continue with Google
-            </motion.button>
-          </form>
-
-          {/* Sign-up Link */}
-          <p className="text-gray-300 mt-5 text-lg">
-            Don't have an account?{" "}
-            <Link
-              to="/signup"
-              className="text-[#D83A3A] font-semibold hover:underline"
-            >
-              Sign up here
-            </Link>
+    <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
+      <div className="reveal w-full max-w-md rounded-2xl border border-white/10 bg-[#0b0c12]/90 p-8 shadow-[0_20px_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+        {/* Header Icon & Title */}
+        <div className="text-center">
+          <div className="inline-grid size-12 place-items-center rounded-xl border border-amber-400/30 bg-amber-400/10 text-amber-300 shadow-[0_0_24px_-4px_rgba(251,191,36,0.3)]">
+            <Fingerprint className="size-6" strokeWidth={1.8} />
+          </div>
+          <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
+            Investigator Access
+          </h2>
+          <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-white/40">
+            Sign in to SceneSolver Session
           </p>
-        </motion.div>
+        </div>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="mt-6 flex items-center gap-2 rounded-lg border border-rose-400/30 bg-rose-400/10 p-3 text-xs text-rose-300">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleLogin} className="mt-6 space-y-4">
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-[0.18em] text-white/50 mb-1.5">
+              Authorized Email
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-white/30" />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="investigator@agency.gov"
+                className="w-full rounded-lg border border-white/10 bg-black/40 pl-10 pr-4 py-2.5 font-mono text-sm text-white placeholder-white/20 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400/40"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-[0.18em] text-white/50 mb-1.5">
+              Security Key / Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-white/30" />
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full rounded-lg border border-white/10 bg-black/40 pl-10 pr-4 py-2.5 font-mono text-sm text-white placeholder-white/20 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400/40"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-3 font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[#08080c] shadow-[0_0_24px_-4px_rgba(251,191,36,0.6)] transition-all hover:bg-amber-300 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Verifying...
+              </>
+            ) : (
+              <>
+                Authenticate <ArrowRight className="size-3.5" />
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* 1-Click Instant Demo Access */}
+        <div className="mt-6 rounded-xl border border-amber-400/25 bg-amber-400/[0.04] p-3 text-center">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-amber-300/80">
+            Instant Test Mode (No Setup Required)
+          </p>
+          <button
+            type="button"
+            onClick={handleDemoAccess}
+            disabled={demoLoading || loading}
+            className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 py-2.5 font-mono text-xs font-semibold text-amber-300 shadow-[0_0_15px_-3px_rgba(251,191,36,0.2)] transition-all hover:bg-amber-400/20 disabled:opacity-50"
+          >
+            {demoLoading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Authorizing Demo Session...
+              </>
+            ) : (
+              <>
+                <Zap className="size-3.5 fill-amber-300" /> 1-Click Demo Access (Skip Login)
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="relative my-6 text-center">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-white/[0.08]" />
+          </div>
+          <span className="relative bg-[#0b0c12] px-3 font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">
+            or continue with
+          </span>
+        </div>
+
+        {/* Google OAuth Button */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/15 bg-white/[0.03] py-2.5 font-mono text-xs text-white/80 transition-colors hover:border-white/30 hover:bg-white/[0.07] hover:text-white"
+        >
+          <img src={googleIcon} alt="Google" className="size-4 object-contain" />
+          Single Sign-On (Google)
+        </button>
+
+        {/* Signup Redirect */}
+        <p className="mt-6 text-center font-mono text-xs text-white/40">
+          Unregistered agency credentials?{" "}
+          <Link to="/signup" className="text-amber-300 hover:underline">
+            Register Dossier
+          </Link>
+        </p>
       </div>
-    </section>
+    </div>
   );
 }

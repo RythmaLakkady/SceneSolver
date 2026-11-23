@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
+import { createContext, useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
 
@@ -80,6 +80,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const demoLogin = async () => {
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/auth/local/demo-login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Demo login failed");
+      }
+
+      localStorage.setItem("token", data.token);
+      setUser(data.user);
+      navigate("/");
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  };
+
   const signup = async (userData) => {
     try {
       console.log("Sending registration data:", userData);
@@ -104,6 +128,7 @@ export const AuthProvider = ({ children }) => {
       return {
         success: true,
         userId: data.userId,
+        devOtp: data.devOtp,
       };
     } catch (error) {
       console.error("Registration error:", error);
@@ -211,6 +236,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         login,
+        demoLogin,
         logout,
         signup,
         verifyOTP,

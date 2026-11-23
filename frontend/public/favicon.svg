@@ -1,9 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#1A1A1A"/>
-  <!-- Magnifying glass circle -->
-  <circle cx="26" cy="26" r="13" fill="none" stroke="#D83A3A" stroke-width="5"/>
-  <!-- Magnifying glass handle -->
-  <line x1="35" y1="35" x2="52" y2="52" stroke="#D83A3A" stroke-width="5" stroke-linecap="round"/>
-  <!-- Center dot -->
-  <circle cx="26" cy="26" r="4" fill="#D83A3A" opacity="0.6"/>
+  <rect width="64" height="64" rx="14" fill="#08080c"/>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="rgba(251,191,36,0.3)" stroke-width="2"/>
+  <path d="M32 14 C22 14 16 22 16 32 C16 42 22 50 32 50 C42 50 48 42 48 32 C48 22 42 14 32 14 Z" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+  <path d="M24 28 C26 22 38 22 40 28 C41 33 33 36 33 42" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="33" cy="45" r="1.5" fill="#fbbf24"/>
 </svg>

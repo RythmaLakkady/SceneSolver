@@ -24,22 +24,22 @@ evidence_classes = [
     "Blood", "Explosion", "Bag", "Money", "Weapon", "Smoke", "Person"
 ]
 
-# Enhanced crime prompts matching few-shot training
+# Enhanced descriptive crime prompts matching natural language taxonomy
 few_shot_crime_prompts = {
-    "Arrest": "police officers arresting a suspect with handcuffs",
-    "Arson": "building on fire from deliberate arson",
-    "Assault": "person being physically attacked violently",
-    "Burglary": "person breaking into private building",
-    "Explosion": "explosion with debris and destruction",
-    "Fighting": "multiple people fighting violently",
-    "RoadAccidents": "serious car accident on roadway",
-    "Robbery": "armed robbery with weapon threats",
-    "Shooting": "shooting incident with firearm",
-    "Shoplifting": "person stealing from retail store",
-    "Stealing": "person stealing personal property",
-    "Vandalism": "property being vandalized deliberately",
-    "Abuse": "person being abused or harmed",
-    "Normal": "normal peaceful everyday activity"
+    "Arrest": "police officers arresting and detaining a suspect in handcuffs",
+    "Arson": "a building, structure or vehicle on fire from deliberate arson",
+    "Assault": "a person being physically attacked, beaten, or assaulted violently",
+    "Burglary": "a burglar breaking into a private home, building, or store window",
+    "Explosion": "a bomb explosion with blast fire, smoke and destruction",
+    "Fighting": "multiple people physically fighting, brawling, and punching violently",
+    "RoadAccidents": "serious car accident or motor vehicle collision on roadway",
+    "Robbery": "armed robbery with weapon threats, stealing money or goods",
+    "Shooting": "shooting incident with a person firing a gun or firearm",
+    "Shoplifting": "customer secretly stealing merchandise from retail store",
+    "Stealing": "person snatching or stealing personal property, purse, or bicycle",
+    "Vandalism": "property being vandalized deliberately with graffiti or destruction",
+    "Abuse": "person being physically abused or mistreated",
+    "Normal": "normal peaceful everyday scene with routine activity and no crime"
 }
 
 # === Transforms ===

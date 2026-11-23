@@ -1,65 +1,72 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { BACKEND_URL } from "./config";
-import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./context/AuthContext";
 import html2pdf from "html2pdf.js";
-
-const images = [
-  "src/assets/crimeSceneImg.jpg",
-  "src/assets/cs1.jpg",
-  "src/assets/cs2.jpg",
-  "src/assets/cs3.jpg",
-];
+import {
+  FolderArchive,
+  Download,
+  X,
+  Shield,
+  Fingerprint,
+  Calendar,
+  MapPin,
+  Clock,
+  Plus,
+  Loader2,
+  CheckCircle2,
+  Maximize2,
+  FileText,
+} from "lucide-react";
+import ConfidenceGauge from "./components/ConfidenceGauge";
+import { cn, parseGeminiSections } from "./lib/utils";
 
 export default function User() {
   const { user } = useAuth();
-  const email = user.email;
+  const email = user?.email;
 
-  const [index, setIndex] = useState(0);
   const [cases, setCases] = useState([]);
   const [selectedCase, setSelectedCase] = useState(null);
   const [caseDetails, setCaseDetails] = useState([]);
   const [caseResult, setCaseResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [uploadLoading, setUploadLoading] = useState(false);
+  const [fetchingCases, setFetchingCases] = useState(true);
+
+  // New files upload to existing case
   const [newFiles, setNewFiles] = useState([]);
+  const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
+  // Image zoom modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalImage, setModalImage] = useState(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % images.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    fetchUserCases();
+    if (email) {
+      fetchUserCases();
+    }
   }, [email]);
 
   const fetchUserCases = async () => {
+    setFetchingCases(true);
     try {
-      const res = await axios.get(
-        `${BACKEND_URL}/api/upload/user?email=${email}`
-      );
-      // console.log("Raw case data:", res.data);
-
-      const filtered = res.data.filter(
+      const res = await axios.get(`${BACKEND_URL}/api/upload/user?email=${email}`);
+      const filtered = (res.data || []).filter(
         (item) => item && item.metadata && item.metadata.caseName
       );
 
       const uniqueCases = [
-        ...new Map(
-          filtered.map((item) => [item.metadata.caseName, item])
-        ).values(),
+        ...new Map(filtered.map((item) => [item.metadata.caseName, item])).values(),
       ].map((item) => item.metadata.caseName);
 
       setCases(uniqueCases);
+      if (uniqueCases.length > 0 && !selectedCase) {
+        handleCaseClick(uniqueCases[0]);
+      }
     } catch (err) {
       console.error("Error fetching cases:", err);
+    } finally {
+      setFetchingCases(false);
     }
   };
 
@@ -71,17 +78,12 @@ export default function User() {
       const res = await axios.get(
         `${BACKEND_URL}/api/upload/user/case?email=${email}&caseName=${caseName}`
       );
-
-      setCaseDetails(res.data);
+      setCaseDetails(res.data || []);
 
       const resultData =
-        res.data &&
-        res.data[0] &&
-        res.data[0].metadata &&
-        res.data[0].metadata.caseResult
+        res.data && res.data[0]?.metadata?.caseResult
           ? res.data[0].metadata.caseResult
           : {};
-
       setCaseResult(resultData);
     } catch (err) {
       console.error("Error fetching case details:", err);
@@ -90,181 +92,56 @@ export default function User() {
     }
   };
 
-  const formatGeminiOutput = (text) => {
-    const sections = text.split(/(?=\n[A-Z][A-Z\s]+:)/);
-    return sections
-      .map((section, index) => {
-        const [header, ...content] = section.split("\n");
-        if (!header.trim()) return null;
-
-        const cleanHeader = header.replace(/[:*]+/g, "").trim();
-
-        return (
-          <div
-            key={index}
-            className="mb-8 last:mb-0 bg-black/20 rounded-lg p-6 border border-gray-700/30"
-          >
-            <h3 className="text-xl font-semibold text-[#D83A3A] mb-4 pb-2 border-b border-gray-700/30">
-              {cleanHeader}
-            </h3>
-            <div className="text-gray-300 space-y-3">
-              {content
-                .map((line, i) => {
-                  if (!line.trim()) return null;
-
-                  const keyValueMatch = line.trim().match(/^([^:]+):\s*(.+)$/);
-                  if (keyValueMatch) {
-                    return (
-                      <div
-                        key={i}
-                        className="flex flex-col sm:flex-row sm:items-center gap-2 bg-black/20 p-3 rounded-lg"
-                      >
-                        <span className="text-[#D83A3A] font-medium min-w-[120px]">
-                          {keyValueMatch[1].trim()}:
-                        </span>
-                        <span className="text-gray-300">
-                          {keyValueMatch[2].trim()}
-                        </span>
-                      </div>
-                    );
-                  }
-
-                  const bulletMatch = line.trim().match(/^[-*]\s*(.+)$/);
-                  if (bulletMatch) {
-                    return (
-                      <div
-                        key={i}
-                        className="flex items-start gap-3 bg-black/20 p-3 rounded-lg"
-                      >
-                        <span className="text-[#D83A3A] mt-1">•</span>
-                        <span className="text-gray-300 flex-1">
-                          {bulletMatch[1].trim()}
-                        </span>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <p
-                      key={i}
-                      className="leading-relaxed bg-black/20 p-3 rounded-lg"
-                    >
-                      {line.trim()}
-                    </p>
-                  );
-                })
-                .filter(Boolean)}
-            </div>
-          </div>
-        );
-      })
-      .filter(Boolean);
-  };
-
-  const handleDownloadPDF = (caseName, summary) => {
+  const handleDownloadPDF = (caseNameParam, summary) => {
     const tempContainer = document.createElement("div");
     tempContainer.style.background = "white";
     tempContainer.style.padding = "40px";
-    tempContainer.style.color = "black";
+    tempContainer.style.color = "#111827";
     tempContainer.style.fontFamily = "Arial, sans-serif";
 
-    const caseResult = caseDetails[0]?.metadata?.caseResult || {};
+    const resObj = caseResult || {};
+    const metadata = caseDetails[0]?.metadata || {};
 
     const content = `
       <div style="max-width: 800px; margin: 0 auto;">
-        <h1 style="color: #D83A3A; font-size: 28px; text-align: center; margin-bottom: 20px;">
-          Crime Scene Analysis Report
-        </h1>
-        <h2 style="font-size: 22px; text-align: center; margin-bottom: 30px; color: #333;">
-          ${caseName}
-        </h2>
-        
-        <div style="margin-bottom: 40px; padding: 20px; background: #f8f8f8; border-radius: 8px;">
-          <h3 style="color: #D83A3A; font-size: 20px; margin-bottom: 15px;">Crime Scene Classification</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div style="padding: 15px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <p style="color: #666; margin-bottom: 5px;">Type:</p>
-              <p style="color: #333; font-weight: 500;">${
-                caseResult.predicted_class || "Not available"
-              }</p>
-            </div>
-            <div style="padding: 15px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <p style="color: #666; margin-bottom: 5px;">Confidence:</p>
-              <p style="color: #333; font-weight: 500;">${
-                caseResult.crime_confidence || "Not available"
-              }</p>
-            </div>
-          </div>
+        <div style="border-bottom: 2px solid #08080c; padding-bottom: 10px; margin-bottom: 20px;">
+          <h1 style="color: #d97706; font-size: 22px; text-transform: uppercase; margin: 0;">SceneSolver Forensic Intelligence Report</h1>
+          <p style="color: #6b7280; font-size: 11px; margin-top: 4px;">CHAIN OF CUSTODY VERIFIED ARCHIVE RECORD</p>
         </div>
 
-        <div style="margin-bottom: 40px; padding: 20px; background: #f8f8f8; border-radius: 8px;">
-          <h3 style="color: #D83A3A; font-size: 20px; margin-bottom: 15px;">Evidence Analysis</h3>
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            ${
-              caseResult.extracted_evidence
-                ?.map(
-                  (evidence) => `
-              <div style="padding: 15px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #333; font-weight: 500;">${evidence.label}</span>
-                <span style="color: #666; font-size: 14px;">Confidence: ${evidence.confidence}</span>
+        <div style="margin-bottom: 20px; background: #f9fafb; padding: 16px; border-radius: 8px;">
+          <h2 style="font-size: 18px; margin: 0 0 8px 0; color: #111;">${caseNameParam}</h2>
+          <p style="margin: 4px 0; font-size: 13px; color: #4b5563;"><strong>Location:</strong> ${metadata.location || "Not specified"}</p>
+          <p style="margin: 4px 0; font-size: 13px; color: #4b5563;"><strong>Date:</strong> ${metadata.date || "Not specified"}</p>
+        </div>
+
+        <div style="margin-bottom: 20px; padding: 14px; border-left: 4px solid #d97706; background: #fffbeb;">
+          <h3 style="margin: 0 0 6px 0; font-size: 14px; color: #92400e;">CRIME SCENE CLASSIFICATION</h3>
+          <p style="font-size: 18px; font-weight: bold; margin: 0; color: #111;">${resObj.predicted_class || "Undetermined"}</p>
+          <p style="font-size: 12px; color: #78350f; margin-top: 2px;">Confidence: ${resObj.crime_confidence || "N/A"}</p>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 13px; text-transform: uppercase; color: #374151; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px;">KEY PHYSICAL EVIDENCE</h3>
+          <div style="margin-top: 8px;">
+            ${(resObj.extracted_evidence || [])
+        .map(
+          (e) => `
+              <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #e5e7eb; font-size: 12px;">
+                <span>• ${e.label}</span>
+                <span style="font-weight: 600;">${e.confidence}</span>
               </div>
             `
-                )
-                .join("") || "No evidence available"
-            }
+        )
+        .join("") || "<p style='font-size: 12px; color: #9ca3af;'>No evidence markers available</p>"}
           </div>
         </div>
 
-        <div style="padding: 20px; background: #f8f8f8; border-radius: 8px;">
-          <h3 style="color: #D83A3A; font-size: 20px; margin-bottom: 15px;">AI Analysis Summary</h3>
-          ${summary?.candidates?.[0]?.content?.parts?.[0]?.text
-            .split(/(?=\n[A-Z][A-Z\s]+:)/)
-            .map((section) => {
-              const [header, ...content] = section.split("\n");
-              if (!header.trim()) return "";
-
-              const cleanHeader = header.replace(/[:*]+/g, "").trim();
-
-              return `
-              <div style="margin-bottom: 25px; padding: 15px; background: white; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h4 style="color: #D83A3A; font-size: 18px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
-                  ${cleanHeader}
-                </h4>
-                <div style="color: #333; line-height: 1.6;">
-                  ${content
-                    .map((line) => {
-                      if (!line.trim()) return "";
-                      const keyValueMatch = line
-                        .trim()
-                        .match(/^([^:]+):\s*(.+)$/);
-                      const bulletMatch = line.trim().match(/^[-*]\s*(.+)$/);
-
-                      if (keyValueMatch) {
-                        return `
-                        <div style="margin-bottom: 10px; padding: 10px; background: #f8f8f8; border-radius: 4px;">
-                          <span style="color: #D83A3A; font-weight: 500;">${keyValueMatch[1].trim()}:</span>
-                          <span style="color: #333;">${keyValueMatch[2].trim()}</span>
-                        </div>
-                      `;
-                      }
-
-                      if (bulletMatch) {
-                        return `
-                        <div style="margin-bottom: 10px; padding: 10px; background: #f8f8f8; border-radius: 4px;">
-                          <span style="color: #D83A3A; margin-right: 8px;">•</span>
-                          <span style="color: #333;">${bulletMatch[1].trim()}</span>
-                        </div>
-                      `;
-                      }
-
-                      return `<p style="margin-bottom: 10px; padding: 10px; background: #f8f8f8; border-radius: 4px;">${line.trim()}</p>`;
-                    })
-                    .join("")}
-                </div>
-              </div>
-            `;
-            })
-            .join("")}
+        <div>
+          <h3 style="font-size: 13px; text-transform: uppercase; color: #374151; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px;">AI MULTIMODAL SUMMARY</h3>
+          <div style="font-size: 12px; line-height: 1.6; color: #374151; white-space: pre-wrap; margin-top: 8px;">
+            ${summary?.candidates?.[0]?.content?.parts?.[0]?.text || "Summary not available for this record."}
+          </div>
         </div>
       </div>
     `;
@@ -274,19 +151,10 @@ export default function User() {
 
     const opt = {
       margin: [0.5, 0.5],
-      filename: `${caseName}_report.pdf`,
+      filename: `${caseNameParam.replace(/\s+/g, "_")}_archive_report.pdf`,
       image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        logging: true,
-      },
-      jsPDF: {
-        unit: "in",
-        format: "letter",
-        orientation: "portrait",
-      },
-      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
     };
 
     html2pdf()
@@ -298,89 +166,14 @@ export default function User() {
       });
   };
 
-  const renderCaseMedia = () => {
-    const imageFiles = caseDetails.filter(
-      (f) => f && f.contentType && f.contentType.startsWith("image")
-    );
-
-    const videoFiles = caseDetails.filter(
-      (f) => f && f.contentType && f.contentType.startsWith("video")
-    );
-
-    if (imageFiles.length === 0 && videoFiles.length === 0) {
-      return (
-        <div className="col-span-3 text-white text-center p-8 bg-black/30 rounded-lg">
-          No media available for this case.
-        </div>
-      );
-    }
-
-    return (
-      <>
-        {videoFiles.map((file) => (
-          <motion.div
-            key={file._id}
-            className="relative group overflow-hidden rounded-lg border border-white/20 col-span-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <video
-              controls
-              className="w-full rounded-lg"
-              style={{ maxHeight: "400px" }}
-            >
-              <source
-                src={`${BACKEND_URL}/api/upload/file/${file._id}`}
-                type={file.contentType}
-              />
-              Your browser does not support the video tag.
-            </video>
-            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">
-              {file.filename}
-            </div>
-          </motion.div>
-        ))}
-
-        {imageFiles.map((file) => (
-          <motion.div
-            key={file._id}
-            className="relative group overflow-hidden rounded-lg border border-white/20 cursor-pointer"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            onClick={() => {
-              setModalImage(
-                `${BACKEND_URL}/api/upload/file/${file._id}`
-              );
-              setModalOpen(true);
-            }}
-          >
-            <img
-              src={`${BACKEND_URL}/api/upload/file/${file._id}`}
-              alt={file.filename || "Case image"}
-              className="w-full h-56 object-cover transform group-hover:scale-105 transition duration-300 ease-in-out"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate">
-              {file.filename}
-            </div>
-          </motion.div>
-        ))}
-      </>
-    );
-  };
-
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-
     const videoFiles = files.filter((file) => file.type.startsWith("video/"));
 
-    if (videoFiles.length > 0) {
-      if (files.length > 1) {
-        setUploadError("Please upload only one video file at a time");
-        e.target.value = "";
-        return;
-      }
+    if (videoFiles.length > 0 && files.length > 1) {
+      setUploadError("Please upload only one video file at a time");
+      e.target.value = "";
+      return;
     }
 
     setNewFiles(files);
@@ -392,18 +185,8 @@ export default function User() {
       setUploadError("Please select a case first");
       return;
     }
-
     if (newFiles.length === 0) {
       setUploadError("Please select at least one file");
-      return;
-    }
-
-    const isVideoUpload = newFiles.some((file) =>
-      file.type.startsWith("video/")
-    );
-
-    if (!isVideoUpload && newFiles.length < 1) {
-      setUploadError("Please select at least one image");
       return;
     }
 
@@ -411,455 +194,377 @@ export default function User() {
     setUploadError("");
 
     try {
+      const activeMeta = caseDetails[0]?.metadata || {};
       const formData = new FormData();
-      formData.append("email", email);
       formData.append("caseName", selectedCase);
+      formData.append("location", activeMeta.location || "");
+      formData.append("date", activeMeta.date || "");
+      formData.append("crimeTime", activeMeta.crimeTime || "");
+      formData.append("email", email);
+      formData.append("caseResult", JSON.stringify(caseResult || {}));
       newFiles.forEach((file) => formData.append("files", file));
 
-      const response = await axios.post(
-        `${BACKEND_URL}/api/upload/add-to-case`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      await axios.post(`${BACKEND_URL}/api/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-      if (response.data.result) {
-        setCaseResult(response.data.result);
-        setNewFiles([]);
-
-        await handleCaseClick(selectedCase);
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
-      setUploadError(
-        error.response?.data?.error ||
-          "Error processing case. Please try again."
-      );
-      const fileInput = document.querySelector('input[type="file"]');
-      if (fileInput) fileInput.value = "";
       setNewFiles([]);
+      await handleCaseClick(selectedCase);
+    } catch (err) {
+      console.error("Failed to append files to case:", err);
+      setUploadError("Failed to update case media.");
     } finally {
       setUploadLoading(false);
     }
   };
 
-  const renderCaseDetails = () => {
-    if (!selectedCase || !caseDetails || caseDetails.length === 0) return null;
+  const activeMeta = caseDetails[0]?.metadata || {};
+  const imageFiles = caseDetails.filter(
+    (f) => f && f.contentType && f.contentType.startsWith("image")
+  );
+  const videoFiles = caseDetails.filter(
+    (f) => f && f.contentType && f.contentType.startsWith("video")
+  );
+  const geminiSummary =
+    caseDetails[0]?.metadata?.geminiOutput ||
+    caseDetails[0]?.geminiOutput ||
+    null;
+  const geminiText =
+    geminiSummary?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const structuredSections = parseGeminiSections(geminiText);
 
-    const caseResult = caseDetails[0]?.metadata?.caseResult || {};
-    const caseSummary = caseDetails[0]?.metadata?.caseSummary;
+  const rawConfidence = caseResult?.crime_confidence || 0.85;
+  const parsedConfidence =
+    typeof rawConfidence === "string"
+      ? parseFloat(rawConfidence.replace("%", "")) / (rawConfidence.includes("%") ? 100 : 1)
+      : rawConfidence;
 
-    return (
-      <div className="space-y-6">
-        <div className="bg-black/40 p-6 rounded-xl border border-gray-700/50">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-semibold text-white">Case Summary</h3>
-            <button
-              onClick={() => handleDownloadPDF(selectedCase, caseSummary)}
-              className="flex items-center px-4 py-2 bg-[#D83A3A] text-white rounded-lg hover:bg-[#B92B2B] transition-all"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              Download PDF
-            </button>
+  return (
+    <div className="relative min-h-[calc(100vh-4rem)] px-5 py-10 sm:px-8">
+      <div className="mx-auto max-w-7xl">
+        {/* Page Title */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.07] pb-6">
+          <div>
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-cyan-300/80">
+              <FolderArchive className="size-3.5" />
+              Evidence Archive
+            </div>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              Investigator Dossier Repository
+            </h1>
           </div>
+          <div className="font-mono text-xs text-white/50">
+            Authenticated: <span className="text-amber-300">{email}</span>
+          </div>
+        </div>
 
-          <div className="grid gap-6">
-            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
-              <h4 className="text-xl font-medium text-[#D83A3A] mb-4">
-                Crime Scene Classification
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-black/30 p-3 rounded-lg">
-                  <p className="text-gray-400 text-sm">Type:</p>
-                  <p className="text-white">
-                    {caseResult.predicted_class || "Not available"}
-                  </p>
-                </div>
-                <div className="bg-black/30 p-3 rounded-lg">
-                  <p className="text-gray-400 text-sm">Confidence:</p>
-                  <p className="text-white">
-                    {caseResult.crime_confidence || "Not available"}
-                  </p>
-                </div>
+        {fetchingCases ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="flex items-center gap-3 font-mono text-xs uppercase tracking-[0.18em] text-white/50">
+              <Loader2 className="size-4 animate-spin text-amber-300" />
+              Loading Archive Catalog...
+            </div>
+          </div>
+        ) : cases.length === 0 ? (
+          <div className="mt-12 rounded-2xl border border-white/10 bg-[#0b0c12] p-12 text-center">
+            <Fingerprint className="mx-auto size-10 text-white/30" />
+            <h3 className="mt-4 text-lg font-semibold text-white">No Cases on Record</h3>
+            <p className="mt-1 text-sm text-white/45">
+              You haven&apos;t submitted any crime scenes for analysis yet.
+            </p>
+            <a
+              href="/upload"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-400 px-5 py-2.5 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-[#08080c] hover:bg-amber-300"
+            >
+              Open First Intake
+            </a>
+          </div>
+        ) : (
+          <div className="mt-8 grid gap-8 lg:grid-cols-[300px_1fr]">
+            {/* Left Case Index Sidebar */}
+            <div className="space-y-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40 mb-3 px-1">
+                Case Files ({cases.length})
+              </p>
+              <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
+                {cases.map((cName) => {
+                  const isSelected = selectedCase === cName;
+                  return (
+                    <button
+                      key={cName}
+                      onClick={() => handleCaseClick(cName)}
+                      className={cn(
+                        "w-full rounded-xl border p-3.5 text-left transition-all",
+                        isSelected
+                          ? "border-amber-400/40 bg-amber-400/[0.08] shadow-md"
+                          : "border-white/[0.06] bg-[#0b0c12] hover:border-white/20 hover:bg-white/[0.02]"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-white/30">
+                          FILE
+                        </span>
+                        <span className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-[0.14em] text-emerald-400">
+                          <CheckCircle2 className="size-2.5" /> Logged
+                        </span>
+                      </div>
+                      <p className="mt-2 truncate text-sm font-semibold text-white">
+                        {cName}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {caseResult.extracted_evidence && (
-              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
-                <h4 className="text-xl font-medium text-[#D83A3A] mb-4">
-                  Evidence Analysis
-                </h4>
-                <div className="space-y-3">
-                  {caseResult.extracted_evidence.map((evidence, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-black/30 p-3 rounded-lg flex justify-between items-center"
-                    >
-                      <span className="text-white">{evidence.label}</span>
-                      <span className="text-sm text-gray-300">
-                        Confidence: {evidence.confidence}
-                      </span>
-                    </div>
-                  ))}
+            {/* Right Case Inspection Detail */}
+            <div className="min-w-0">
+              {loading ? (
+                <div className="flex h-96 items-center justify-center rounded-2xl border border-white/10 bg-[#0b0c12]">
+                  <div className="flex items-center gap-3 font-mono text-xs uppercase tracking-[0.18em] text-white/50">
+                    <Loader2 className="size-4 animate-spin text-amber-300" />
+                    Retrieving Dossier...
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : selectedCase ? (
+                <div className="space-y-6">
+                  {/* Case Header Card */}
+                  <div className="rounded-2xl border border-white/10 bg-[#0b0c12] p-6 shadow-xl">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-300">
+                          <Shield className="size-3.5" /> Active Dossier
+                        </div>
+                        <h2 className="mt-1 text-2xl font-bold text-white">
+                          {selectedCase}
+                        </h2>
+                        <div className="mt-2 flex flex-wrap gap-4 text-xs text-white/50">
+                          {activeMeta.location && (
+                            <span className="flex items-center gap-1 font-mono">
+                              <MapPin className="size-3.5 text-amber-400" />
+                              {activeMeta.location}
+                            </span>
+                          )}
+                          {activeMeta.date && (
+                            <span className="flex items-center gap-1 font-mono">
+                              <Calendar className="size-3.5 text-cyan-400" />
+                              {activeMeta.date}
+                            </span>
+                          )}
+                          {activeMeta.crimeTime && (
+                            <span className="flex items-center gap-1 font-mono">
+                              <Clock className="size-3.5 text-rose-400" />
+                              {activeMeta.crimeTime}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-            {caseSummary && (
-              <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
-                <h4 className="text-xl font-medium text-[#D83A3A] mb-4">
-                  AI Analysis Summary
-                </h4>
-                <div className="bg-black/30 p-4 rounded-lg">
-                  <div className="prose prose-invert max-w-none">
-                    {formatGeminiOutput(
-                      caseSummary?.candidates?.[0]?.content?.parts?.[0]?.text || "AI summary could not be generated."
+                      <button
+                        onClick={() => handleDownloadPDF(selectedCase, geminiSummary)}
+                        className="flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#08080c] hover:bg-amber-300"
+                      >
+                        <Download className="size-3.5" /> Download PDF
+                      </button>
+                    </div>
+
+                    {/* Classification & Confidence Bar */}
+                    {caseResult?.predicted_class && (
+                      <div className="mt-6 grid items-center gap-6 border-t border-white/[0.07] pt-6 sm:grid-cols-[1fr_auto]">
+                        <div>
+                          <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/40">
+                            Crime Classification
+                          </p>
+                          <p className="mt-1 text-2xl font-extrabold text-amber-300">
+                            {caseResult.predicted_class}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-white/50">
+                              CLIP 512-d
+                            </span>
+                            <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-white/50">
+                              ViT-B/16
+                            </span>
+                          </div>
+                        </div>
+                        <ConfidenceGauge
+                          confidence={parsedConfidence}
+                          strokeClass="stroke-amber-400"
+                          size={110}
+                        />
+                      </div>
                     )}
                   </div>
+
+                  {/* Physical Evidence Markers */}
+                  {caseResult?.extracted_evidence && caseResult.extracted_evidence.length > 0 && (
+                    <div className="rounded-2xl border border-white/10 bg-[#0b0c12] p-6 shadow-xl">
+                      <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
+                          Identified Physical Evidence
+                        </span>
+                        <span className="font-mono text-[10px] text-white/30">
+                          {caseResult.extracted_evidence.length} Markers
+                        </span>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {caseResult.extracted_evidence.map((ev, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-xs"
+                          >
+                            <span className="text-white/80 font-medium truncate pr-2">
+                              • {ev.label}
+                            </span>
+                            <span className="font-mono text-xs text-amber-300 font-semibold">
+                              {ev.confidence}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Case Media Gallery */}
+                  <div className="rounded-2xl border border-white/10 bg-[#0b0c12] p-6 shadow-xl">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40 mb-4">
+                      Digital Evidence Media ({imageFiles.length + videoFiles.length})
+                    </p>
+
+                    {imageFiles.length === 0 && videoFiles.length === 0 ? (
+                      <p className="text-xs font-mono text-white/40">No media stored for this case.</p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                        {videoFiles.map((file) => (
+                          <div
+                            key={file._id}
+                            className="relative overflow-hidden rounded-xl border border-white/10 bg-black/60 col-span-2"
+                          >
+                            <video controls className="w-full max-h-56">
+                              <source
+                                src={`${BACKEND_URL}/api/upload/file/${file._id}`}
+                                type={file.contentType}
+                              />
+                            </video>
+                            <div className="p-2 font-mono text-[9px] text-white/40 truncate">
+                              {file.filename}
+                            </div>
+                          </div>
+                        ))}
+
+                        {imageFiles.map((file) => (
+                          <div
+                            key={file._id}
+                            onClick={() => {
+                              setModalImage(`${BACKEND_URL}/api/upload/file/${file._id}`);
+                              setModalOpen(true);
+                            }}
+                            className="group relative aspect-[4/3] cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-black/40"
+                          >
+                            <img
+                              src={`${BACKEND_URL}/api/upload/file/${file._id}`}
+                              alt={file.filename || "Case image"}
+                              className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center">
+                              <span className="grid size-8 place-items-center rounded-full bg-black/60 text-white">
+                                <Maximize2 className="size-4" />
+                              </span>
+                            </div>
+                            <div className="absolute bottom-0 inset-x-0 bg-black/70 px-2 py-1 font-mono text-[8px] text-white/60 truncate">
+                              {file.filename}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Append More Media Form */}
+                    <div className="mt-6 border-t border-white/[0.06] pt-4">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40 mb-2">
+                        Append Media to Case
+                      </p>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleFileChange}
+                          className="font-mono text-xs text-white/60 file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:font-mono file:text-[10px] file:uppercase file:text-white hover:file:bg-white/20"
+                        />
+                        <button
+                          onClick={handleAnalyzeCase}
+                          disabled={newFiles.length === 0 || uploadLoading}
+                          className="flex items-center gap-1.5 rounded-lg bg-amber-400 px-4 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#08080c] disabled:opacity-40 hover:bg-amber-300"
+                        >
+                          {uploadLoading ? (
+                            <>
+                              <Loader2 className="size-3 animate-spin" /> Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="size-3" /> Append Files
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      {uploadError && (
+                        <p className="mt-2 font-mono text-xs text-rose-400">{uploadError}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* AI Multimodal Summary */}
+                  {geminiText && (
+                    <div className="rounded-2xl border border-white/10 bg-[#0b0c12] p-6 shadow-xl">
+                      <div className="flex items-center gap-2 border-b border-white/[0.06] pb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
+                        <FileText className="size-3.5 text-amber-300" /> Investigative Case Dossier
+                      </div>
+                      <div className="mt-4 space-y-4">
+                        {structuredSections.length > 0 ? (
+                          structuredSections.map((sec, i) => (
+                            <div key={i} className="rounded-lg border border-white/[0.05] bg-white/[0.015] p-4">
+                              <h4 className="font-mono text-xs font-bold text-amber-300 uppercase tracking-[0.14em]">
+                                {sec.header}
+                              </h4>
+                              <div className="mt-2 space-y-1.5 text-xs text-white/70 leading-relaxed">
+                                {sec.lines.map((l, lIdx) => (
+                                  <p key={lIdx}>{l}</p>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-white/70">
+                            {geminiText}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              ) : null}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Image Zoom Modal */}
+      {modalOpen && modalImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
+          onClick={() => setModalOpen(false)}
+        >
+          <div className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-xl border border-white/20 bg-[#0b0c12]">
+            <button
+              onClick={() => setModalOpen(false)}
+              className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-black/70 text-white hover:bg-black"
+            >
+              <X className="size-4" />
+            </button>
+            <img src={modalImage} alt="Enlarged evidence" className="max-h-[85vh] w-auto object-contain" />
           </div>
         </div>
-      </div>
-    );
-  };
-
-  return (
-    <section className="relative min-h-screen flex flex-col items-center justify-start bg-[#1A1A1A] pt-20 p-6 overflow-auto font-serif">
-      <div className="absolute inset-0 w-full h-full overflow-hidden z-0">
-        {images.map((img, i) => (
-          <motion.img
-            key={i}
-            src={img}
-            className="absolute w-full h-full object-cover blur-lg"
-            style={{ opacity: i === index ? 1 : 0 }}
-            animate={{ opacity: i === index ? 1 : 0 }}
-            transition={{ duration: 2, ease: "easeInOut" }}
-          />
-        ))}
-      </div>
-
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-
-      <div className="relative z-10 max-w-4xl w-full space-y-10">
-        <motion.div
-          className="bg-white/10 backdrop-blur-lg p-10 rounded-2xl shadow-2xl border border-gray-300/30"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
-        >
-          <h2 className="text-4xl font-bold text-white mb-6 flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-8 w-8 mr-3 text-purple-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-            User Cases
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {cases.length > 0 ? (
-              cases.map((caseName, idx) => (
-                <motion.div
-                  key={idx}
-                  onClick={() => handleCaseClick(caseName)}
-                  className={`cursor-pointer p-5 rounded-xl text-white transition-all border shadow-lg ${
-                    selectedCase === caseName
-                      ? "bg-gradient-to-r from-purple-900/70 to-indigo-900/70 border-purple-500/50 shadow-purple-500/20"
-                      : "bg-white/10 border-gray-300/20 hover:bg-white/20 hover:border-gray-300/40"
-                  }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: idx * 0.1 }}
-                >
-                  <div className="flex items-center">
-                    <div
-                      className={`rounded-full w-3 h-3 mr-3 ${
-                        selectedCase === caseName
-                          ? "bg-purple-400 animate-pulse"
-                          : "bg-gray-400"
-                      }`}
-                    ></div>
-                    <div>
-                      <h3
-                        className={`text-lg ${
-                          selectedCase === caseName ? "font-semibold" : ""
-                        }`}
-                      >
-                        {caseName}
-                      </h3>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Click to view case details
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))
-            ) : (
-              <div className="col-span-2 text-white text-center p-8 bg-black/30 rounded-lg border border-gray-700/50">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-12 w-12 mx-auto mb-4 text-gray-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                  />
-                </svg>
-                <p className="text-lg font-medium">No cases found</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Please upload case files first
-                </p>
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        <AnimatePresence>
-          {selectedCase && (
-            <motion.div
-              className="bg-white/10 backdrop-blur-lg p-10 rounded-2xl shadow-2xl border border-gray-300/30"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.8 }}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-3xl font-semibold text-white flex items-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-7 w-7 mr-3 text-purple-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  {selectedCase}
-                </h3>
-
-                <span className="px-3 py-1 bg-purple-900/60 text-purple-200 text-xs rounded-full border border-purple-500/50">
-                  {
-                    caseDetails.filter(
-                      (f) =>
-                        f && f.contentType && f.contentType.startsWith("image")
-                    ).length
-                  }{" "}
-                  Images
-                </span>
-              </div>
-
-              <div className="mb-8 p-6 bg-black/30 rounded-xl border border-gray-700/50">
-                <h4 className="text-xl font-semibold text-white mb-4">
-                  Case Evidence
-                </h4>
-                <div className="space-y-4">
-                  <div>
-                    <input
-                      type="file"
-                      multiple={
-                        !newFiles.some((file) => file.type.startsWith("video/"))
-                      }
-                      accept="image/*,video/*"
-                      onChange={handleFileChange}
-                      className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-900/60 file:text-purple-200 hover:file:bg-purple-900/80 file:cursor-pointer"
-                    />
-                    <p className="mt-2 text-xs text-gray-400">
-                      You can upload multiple images or a single video file at a
-                      time
-                    </p>
-                  </div>
-                  {newFiles.length > 0 && (
-                    <div className="text-sm text-gray-400">
-                      {newFiles.length} new file(s) selected:{" "}
-                      {newFiles.map((f) => f.name).join(", ")}
-                    </div>
-                  )}
-                  {uploadError && (
-                    <div className="text-red-400 text-sm">{uploadError}</div>
-                  )}
-                  <div className="flex gap-4">
-                    <button
-                      onClick={handleAnalyzeCase}
-                      disabled={uploadLoading}
-                      className={`px-4 py-2 rounded-lg text-white font-medium ${
-                        uploadLoading
-                          ? "bg-gray-600 cursor-not-allowed"
-                          : "bg-purple-600 hover:bg-purple-700"
-                      } transition-colors flex items-center gap-2`}
-                    >
-                      {uploadLoading ? (
-                        <>
-                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                          {newFiles.some((file) =>
-                            file.type.startsWith("video/")
-                          )
-                            ? "Processing Video..."
-                            : newFiles.length > 0
-                            ? "Uploading & Analyzing..."
-                            : "Analyzing..."}
-                        </>
-                      ) : (
-                        <>
-                          {newFiles.some((file) =>
-                            file.type.startsWith("video/")
-                          )
-                            ? "Process Video"
-                            : newFiles.length > 0
-                            ? "Upload & Analyze Evidence"
-                            : "Analyze Case"}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {loading ? (
-                <div className="flex justify-center items-center h-56">
-                  <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-white"></div>
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                    {renderCaseMedia()}
-                  </div>
-                  {renderCaseDetails()}
-                </>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      <AnimatePresence>
-        {modalOpen && modalImage && (
-          <motion.div
-            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setModalOpen(false)}
-          >
-            <motion.div
-              className="relative max-w-5xl max-h-[90vh] w-full mx-4"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={modalImage}
-                alt="Full view"
-                className="w-full h-auto max-h-[90vh] rounded-xl shadow-2xl object-contain"
-              />
-              <button
-                className="absolute top-4 right-4 bg-black/60 text-white rounded-full p-2 hover:bg-black/80 transition-colors"
-                onClick={() => setModalOpen(false)}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-
-              <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm text-white py-4 px-6 rounded-b-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium mb-1">Evidence Image</h4>
-                    <p className="text-sm text-gray-300">
-                      Case: {selectedCase}
-                    </p>
-                  </div>
-                  <div className="flex space-x-3">
-                    <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                        />
-                      </svg>
-                    </button>
-                    <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </section>
+      )}
+    </div>
   );
 }

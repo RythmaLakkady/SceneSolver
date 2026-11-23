@@ -1,1 +1,159 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #08080c;
+    --foreground: #f3f4f6;
+    --card: #0b0c12;
+    --card-foreground: #f3f4f6;
+    --primary: #fbbf24;
+    --primary-foreground: #08080c;
+    --border: rgba(255, 255, 255, 0.08);
+  }
+
+  body {
+    background: #08080c;
+    background-image:
+      radial-gradient(900px 500px at 80% -10%, rgba(251, 191, 36, 0.07), transparent 65%),
+      radial-gradient(700px 500px at 0% 20%, rgba(34, 211, 238, 0.05), transparent 60%);
+    background-attachment: fixed;
+    color: #f3f4f6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+::selection {
+  background: rgba(251, 191, 36, 0.28);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #08080c;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 99px;
+  border: 2px solid #08080c;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(251, 191, 36, 0.5);
+}
+
+.film-grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-shift 0.9s steps(3) infinite;
+}
+
+.grid-lines {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 78%);
+}
+
+.scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.045) 0px,
+    rgba(255, 255, 255, 0.045) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+.text-glow-amber {
+  text-shadow: 0 0 30px rgba(251, 191, 36, 0.4);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 30px rgba(34, 211, 238, 0.4);
+}
+
+@keyframes grain-shift {
+  0% { transform: translate(0, 0); }
+  33% { transform: translate(-2%, 1%); }
+  66% { transform: translate(1%, -2%); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes scan-sweep {
+  0% { transform: translateY(-8%); opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translateY(108%); opacity: 0; }
+}
+.animate-scan {
+  animation: scan-sweep 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+  20%, 22%, 24%, 55% { opacity: 0.55; }
+}
+.animate-flicker {
+  animation: flicker 5.5s linear infinite;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes ping-ring {
+  0% { transform: scale(0.75); opacity: 0.8; }
+  80%, 100% { transform: scale(2.1); opacity: 0; }
+}
+.animate-ping-ring {
+  animation: ping-ring 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-ticker {
+  animation: ticker 32s linear infinite;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.reveal {
+  opacity: 0;
+  animation: fade-up 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.reveal-1 { animation-delay: 0.08s; }
+.reveal-2 { animation-delay: 0.16s; }
+.reveal-3 { animation-delay: 0.24s; }
+.reveal-4 { animation-delay: 0.32s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-scan,
+  .animate-flicker,
+  .animate-blink,
+  .animate-ping-ring,
+  .animate-ticker,
+  .film-grain::after {
+    animation: none !important;
+  }
+  .reveal {
+    opacity: 1;
+    animation: none !important;
+    transform: none;
+  }
+}

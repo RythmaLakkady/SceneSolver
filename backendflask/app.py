@@ -1,22 +1,27 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from pymongo import MongoClient
-from crime_pipeline_few_shot import load_models, predict_single_image, predict_multiple_images, process_crime_scene, extract_frames
+from crime_pipeline import load_models, predict, predict_multiple, process_crime_scene, extract_frames
 from datetime import datetime
 import os
 from werkzeug.utils import secure_filename
 import json
 import shutil
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 app = Flask(__name__)
 CORS(app) 
 
 load_models(
-    vit_checkpoint="vit_model.pth",
-    clip_checkpoint="clip_finetuned_few_shot.pth" 
+    vit_checkpoint="vit_model.pth"
 )
 
-client = MongoClient(os.environ.get("MONGODB_URI", "mongodb+srv://adityapanyala:Sanjeeva7@nodeexpressprojects.m2toq.mongodb.net/crimescene?retryWrites=true&w=majority&appName=NodeExpressProjects"))
+mongo_uri = os.environ.get("MONGODB_URI", "mongodb://127.0.0.1:27017/scenesolver")
+client = MongoClient(mongo_uri)
 db = client["crime_db"]
 collection = db["predictions"]
 
@@ -101,14 +106,11 @@ def upload():
     if len(file_paths) == 1:
         file_path = file_paths[0]
         if is_video_file(file_path):
-            
-            result = predict_multiple_images(file_path)
+            result = predict_multiple(file_path)
         else:
-            
-            result = predict_single_image(file_path)
+            result = predict(file_path)
     else:
-        
-        result = predict_multiple_images(file_paths)
+        result = predict_multiple(file_paths)
 
     
     collection.insert_one({

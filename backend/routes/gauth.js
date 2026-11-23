@@ -2,6 +2,7 @@ import express from "express";
 import passport from "passport";
 import jwt from "jsonwebtoken";
 import Guser from "../models/Guser.js";
+import User from "../models/user.js";
 
 const router = express.Router();
 
@@ -46,7 +47,14 @@ router.get("/current_user", async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await Guser.findById(decoded.userId);
+    let user = await Guser.findById(decoded.userId);
+    let authType = "google";
+
+    // If not found in Guser, check User (local / demo user)
+    if (!user) {
+      user = await User.findById(decoded.userId);
+      authType = "local";
+    }
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -55,30 +63,13 @@ router.get("/current_user", async (req, res) => {
     res.json({
       id: user._id,
       email: user.email,
-      displayName: user.displayName,
+      displayName: user.displayName || user.name,
       avatar: user.avatar,
-      authType: "google",
+      authType,
     });
   } catch (error) {
     res.status(401).json({ error: "Invalid token" });
   }
 });
-
-// router.get("/logout", (req, res) => {
-//   req.logout((err) => {
-//     if (err) {
-//       console.error("Logout error:", err);
-//       return res.status(500).json({ error: "Error logging out" });
-//     }
-//     req.session.destroy((err) => {
-//       if (err) {
-//         console.error("Session destruction error:", err);
-//         return res.status(500).json({ error: "Error destroying session" });
-//       }
-//       res.clearCookie("sessionId");
-//       res.json({ message: "Logged out successfully" });
-//     });
-//   });
-// });
 
 export default router;
